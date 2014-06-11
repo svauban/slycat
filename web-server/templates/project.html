@@ -113,7 +113,48 @@ rights in this software.
           </div>
 
           <div id="local-cca-parameters">
-            <table id="local-cca-variables">
+            <label for="variables">Variables</label>
+            <select multiple name="variables" id="variables">
+              <option>First</option>
+              <option>Second</option>
+            </select>
+
+            <div id="inputs-variables-buttons">
+              <button id="move-from-variables-to-inputs" data-source="variables" data-destination="inputs" value="Move to Inputs" />
+              <button id="move-from-inputs-to-variables" data-source="inputs" data-destination="variables" value="Move to Variables" />
+            </div>
+
+            <label for="inputs">Inputs</label>
+            <select multiple name="inputs" id="inputs">
+              <option>First</option>
+              <option>Second</option>
+            </select>
+
+            <div id="inputs-outputs-buttons">
+              <button id="move-from-inputs-to-outputs" data-source="inputs" data-destination="outputs" value="Move to Outputs" />
+              <button id="move-from-outputs-to-inputs" data-source="outputs" data-destination="inputs" value="Move to Inputs" />
+            </div>
+
+            <div id="outputs-variables-buttons">
+              <button id="move-from-variables-to-outputs" data-source="variables" data-destination="outputs" value="Move to Outputs" />
+              <button id="move-from-outputs-to-variables" data-source="outputs" data-destination="variables" value="Move to Variables" />
+            </div>
+
+            <label for="outputs">Outputs</label>
+            <select multiple name="outputs" id="outputs">
+              <option>First</option>
+              <option>Second</option>
+            </select>
+
+            <div id="unavailable-wrapper" style="display: none;">
+              <label for="unavailable">Unavailable</label>
+              <select multiple disabled name="unavailable" id="unavailable">
+                <option>First</option>
+                <option>Second</option>
+              </select>
+            </div>
+
+<!--             <table id="local-cca-variables">
               <thead>
                 <tr><th>Variable</th><th>Input</th><th>Output</th></tr>
                 <tr>
@@ -124,7 +165,7 @@ rights in this software.
               </thead>
               <tbody>
               </tbody>
-            </table>
+            </table> -->
 
             <div>
               <p><input id="local-cca-scale-inputs" type="checkbox"></input>Scale inputs to unit variance.</p>
@@ -418,11 +459,11 @@ rights in this software.
                 url : "{{server-root}}models/" + local_cca_model,
                 success : function(details)
                 {
-                  console.log("successfuly deleted unfinished model");
+                  // console.log("successfuly deleted unfinished model");
                 },
                 error : function(request, status, reason_phrase)
                 {
-                  console.log("problems deleting unfinished model");
+                  // console.log("problems deleting unfinished model");
                 }
               });
             }
@@ -483,42 +524,88 @@ rights in this software.
                 url : "{{server-root}}models/" + local_cca_model + "/tables/data-table/arrays/0/metadata",
                 success : function(table)
                 {
-                  function deselect_companion(companion)
-                  {
-                    return function()
-                    {
-                      companion.removeAttr("checked");
-                    }
-                  }
-                  $("#local-cca-variables tbody").empty();
+                  $("#variables, #inputs, #outputs, #unavailable").empty();
+                  var variables = $("#variables");
+
+                  $("#move-from-variables-to-inputs, #move-from-variables-to-outputs").button({
+                    icons: {
+                    primary: "ui-icon-arrowthick-1-e"
+                    },
+                    text: false
+                    });
+                  $("#move-from-inputs-to-variables, #move-from-outputs-to-variables").button({
+                    icons: {
+                    primary: "ui-icon-arrowthick-1-w"
+                    },
+                    text: false
+                    });
+                  $("#move-from-inputs-to-outputs").button({
+                    icons: {
+                    primary: "ui-icon-arrowthick-1-s"
+                    },
+                    text: false
+                    });
+                  $("#move-from-outputs-to-inputs").button({
+                    icons: {
+                    primary: "ui-icon-arrowthick-1-n"
+                    },
+                    text: false
+                    });
+                  $("#move-from-variables-to-inputs, #move-from-inputs-to-variables, #move-from-inputs-to-outputs, #move-from-outputs-to-inputs, #move-from-variables-to-outputs, #move-from-outputs-to-variables")
+                    .click(function(e){
+                      console.log("you clicked: " + $(this).attr("id"));
+                      console.log("move from: " + $(this).data("source"));
+                      console.log("move to: " + $(this).data("destination"));
+                      $('option:selected', "#" + $(this).data("source") ).remove().appendTo('#' + $(this).data("destination") );
+                    })
+                    ;
+
                   $.each(table["column-names"], function(index, column)
                   {
-                    var row = $("<tr>")
-                      .addClass(function(){
-                        if( (table["column-types"][index] == "string") || (table["column-min"][index] == table["column-max"][index]) )
-                          return "disabled ui-state-default";
-                      })
-                      .appendTo($("#local-cca-variables tbody"));
-                    $("<td>").text(column).appendTo(row);
-
-                    if(table["column-types"][index] == "string")
-                    {
-                      $("<td colspan='2'><span class='ui-icon ui-icon-info'></span>Cannot analyze non-numeric data.</td>").appendTo(row);
+                    var target = variables;
+                    if( (table["column-types"][index] == "string") || (table["column-min"][index] == table["column-max"][index]) ) {
+                      $("#unavailable-wrapper").show();
+                      target = $("#unavailable");
                     }
-                    else if(table["column-min"][index] == table["column-max"][index])
-                    {
-                      $("<td colspan='2'><span class='ui-icon ui-icon-info'></span>Cannot analyze constant data.</td>").appendTo(row);
-                    }
-                    else
-                    {
-                      var input = $("<input type='checkbox' name='inputs' class='local-cca-input-variable' title='Treat variable as an input for analysis.'>").val(index).appendTo($("<td>").appendTo(row));
-                      var output = $("<input type='checkbox' name='outputs' class='local-cca-output-variable' title='Treat variable as an output for analysis.'>").val(index).appendTo($("<td>").appendTo(row));
-
-                      input.attr("checked", "checked");
-                      input.click(deselect_companion(output));
-                      output.click(deselect_companion(input));
-                    }
+                    var option = $("<option>").val(index).text(column).appendTo(target);
                   });
+
+                  // function deselect_companion(companion)
+                  // {
+                  //   return function()
+                  //   {
+                  //     companion.removeAttr("checked");
+                  //   }
+                  // }
+                  // $("#local-cca-variables tbody").empty();
+                  // $.each(table["column-names"], function(index, column)
+                  // {
+                  //   var row = $("<tr>")
+                  //     .addClass(function(){
+                  //       if( (table["column-types"][index] == "string") || (table["column-min"][index] == table["column-max"][index]) )
+                  //         return "disabled ui-state-default";
+                  //     })
+                  //     .appendTo($("#local-cca-variables tbody"));
+                  //   $("<td>").text(column).appendTo(row);
+
+                  //   if(table["column-types"][index] == "string")
+                  //   {
+                  //     $("<td colspan='2'><span class='ui-icon ui-icon-info'></span>Cannot analyze non-numeric data.</td>").appendTo(row);
+                  //   }
+                  //   else if(table["column-min"][index] == table["column-max"][index])
+                  //   {
+                  //     $("<td colspan='2'><span class='ui-icon ui-icon-info'></span>Cannot analyze constant data.</td>").appendTo(row);
+                  //   }
+                  //   else
+                  //   {
+                  //     var input = $("<input type='checkbox' name='inputs' class='local-cca-input-variable' title='Treat variable as an input for analysis.'>").val(index).appendTo($("<td>").appendTo(row));
+                  //     var output = $("<input type='checkbox' name='outputs' class='local-cca-output-variable' title='Treat variable as an output for analysis.'>").val(index).appendTo($("<td>").appendTo(row));
+
+                  //     input.attr("checked", "checked");
+                  //     input.click(deselect_companion(output));
+                  //     output.click(deselect_companion(input));
+                  //   }
+                  // });
 
                   $("#local-cca-scale-inputs").attr("checked", "checked");
                   $("#local-cca-browse").css("display", "none");
@@ -574,7 +661,8 @@ rights in this software.
           }
 
           input_columns = [];
-          $(".local-cca-input-variable:checked").each(function(index, element) { input_columns.push(Number($(element).val())); });
+          //$(".local-cca-input-variable:checked").each(function(index, element) { input_columns.push(Number($(element).val())); });
+          $("#inputs option").each(function(index, element) { input_columns.push(Number($(element).val())); });
           if(input_columns.length < 1)
           {
             window.alert("You must select at least one input column.");
@@ -582,7 +670,8 @@ rights in this software.
           }
 
           output_columns = [];
-          $(".local-cca-output-variable:checked").each(function(index, element) { output_columns.push(Number($(element).val())); });
+          //$(".local-cca-output-variable:checked").each(function(index, element) { output_columns.push(Number($(element).val())); });
+          $("#outputs option").each(function(index, element) { output_columns.push(Number($(element).val())); });
           if(output_columns.length < 1)
           {
             window.alert("You must select at least one output column.");
@@ -650,11 +739,11 @@ rights in this software.
                 url : "{{server-root}}models/" + remote_cca_model,
                 success : function(details)
                 {
-                  console.log("successfuly deleted unfinished model");
+                  // console.log("successfuly deleted unfinished model");
                 },
                 error : function(request, status, reason_phrase)
                 {
-                  console.log("problems deleting unfinished model");
+                  // console.log("problems deleting unfinished model");
                 }
               });
             }
