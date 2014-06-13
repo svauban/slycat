@@ -1042,3 +1042,19 @@ a.clicker {
   top: 0;
   width: 100%;
 }
+
+#local-cca-parameters-layout,
+#local-cca-parameters 
+{
+  height: 100%;
+}
+#local-cca-parameters-layout .CCAVariableSelect
+{
+  width: 100%;
+}
+#local-cca-parameters-layout > .ui-layout-south {
+  text-align: right;
+}
+#local-cca-parameters-layout #local-cca-scale-inputs-container {
+  float: left;
+}

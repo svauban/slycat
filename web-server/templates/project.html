@@ -11,7 +11,9 @@ rights in this software.
 {{> head}}
     <title>{{name}} - Slycat Project</title>
     <script type="text/javascript" src="{{server-root}}js/file-browser.js"></script>
+    <script type="text/javascript" src="{{server-root}}js/jquery.layout-latest.min.js"></script>
     <link rel="stylesheet" href="{{server-root}}style/file-browser.css" type="text/css">
+    <!-- <link rel="stylesheet" href="{{server-root}}style/layout-default-latest.css" type="text/css"/> -->
   </head>
 
   <body>
@@ -113,64 +115,48 @@ rights in this software.
           </div>
 
           <div id="local-cca-parameters">
-            <label for="variables">Variables</label>
-            <select multiple name="variables" id="variables">
-              <option>First</option>
-              <option>Second</option>
-            </select>
-
-            <div id="inputs-variables-buttons">
-              <button id="move-from-variables-to-inputs" data-source="variables" data-destination="inputs" value="Move to Inputs" />
-              <button id="move-from-inputs-to-variables" data-source="inputs" data-destination="variables" value="Move to Variables" />
+            <div id="local-cca-parameters-layout">
+              <div class="ui-layout-north">Search Goes Here</div>
+              <div class="ui-layout-west">
+                <label for="variables">Variables</label>
+                <select multiple name="variables" id="variables" class="CCAVariableSelect"></select>
+                <label for="unavailable" class="unavailable">Unavailable</label>
+                <select multiple disabled name="unavailable" id="unavailable" class="CCAVariableSelect unavailable">
+                  <option>First</option>
+                  <option>Second</option>
+                </select>
+              </div>
+              <div class="ui-layout-center">
+                <div id="inputs-variables-buttons">
+                  <button id="move-from-variables-to-inputs" data-source="variables" data-destination="inputs" value="Move to Inputs" />
+                  <button id="move-from-inputs-to-variables" data-source="inputs" data-destination="variables" value="Move to Variables" />
+                </div>
+                <div id="outputs-variables-buttons">
+                  <button id="move-from-variables-to-outputs" data-source="variables" data-destination="outputs" value="Move to Outputs" />
+                  <button id="move-from-outputs-to-variables" data-source="outputs" data-destination="variables" value="Move to Variables" />
+                </div>
+              </div>
+              <div class="ui-layout-east">
+                <label for="inputs">Inputs</label>
+                <select multiple name="inputs" id="inputs" class="CCAVariableSelect">
+                  <option>First</option>
+                  <option>Second</option>
+                </select>
+                <div id="inputs-outputs-buttons">
+                  <button id="move-from-inputs-to-outputs" data-source="inputs" data-destination="outputs" value="Move to Outputs" />
+                  <button id="move-from-outputs-to-inputs" data-source="outputs" data-destination="inputs" value="Move to Inputs" />
+                </div>
+                <label for="outputs">Outputs</label>
+                <select multiple name="outputs" id="outputs" class="CCAVariableSelect">
+                  <option>First</option>
+                  <option>Second</option>
+                </select>
+              </div>
+              <div class="ui-layout-south">
+                <div id="local-cca-scale-inputs-container"><input id="local-cca-scale-inputs" type="checkbox"></input>Scale inputs to unit variance.</div>
+                <button id="local-cca-parameters-next">Run</button>
+              </div>
             </div>
-
-            <label for="inputs">Inputs</label>
-            <select multiple name="inputs" id="inputs">
-              <option>First</option>
-              <option>Second</option>
-            </select>
-
-            <div id="inputs-outputs-buttons">
-              <button id="move-from-inputs-to-outputs" data-source="inputs" data-destination="outputs" value="Move to Outputs" />
-              <button id="move-from-outputs-to-inputs" data-source="outputs" data-destination="inputs" value="Move to Inputs" />
-            </div>
-
-            <div id="outputs-variables-buttons">
-              <button id="move-from-variables-to-outputs" data-source="variables" data-destination="outputs" value="Move to Outputs" />
-              <button id="move-from-outputs-to-variables" data-source="outputs" data-destination="variables" value="Move to Variables" />
-            </div>
-
-            <label for="outputs">Outputs</label>
-            <select multiple name="outputs" id="outputs">
-              <option>First</option>
-              <option>Second</option>
-            </select>
-
-            <div id="unavailable-wrapper" style="display: none;">
-              <label for="unavailable">Unavailable</label>
-              <select multiple disabled name="unavailable" id="unavailable">
-                <option>First</option>
-                <option>Second</option>
-              </select>
-            </div>
-
-<!--             <table id="local-cca-variables">
-              <thead>
-                <tr><th>Variable</th><th>Input</th><th>Output</th></tr>
-                <tr>
-                  <td></td>
-                  <td><button id="local-cca-all-inputs-on" title="Turn all inputs on.">On</button><button id="local-cca-all-inputs-off" title="Turn all inputs off.">Off</button></td>
-                  <td><button id="local-cca-all-outputs-on" title="Turn all outputs on.">On</button><button id="local-cca-all-outputs-off" title="Turn all outputs off.">Off</button></td>
-                </tr>
-              </thead>
-              <tbody>
-              </tbody>
-            </table> -->
-
-            <div>
-              <p><input id="local-cca-scale-inputs" type="checkbox"></input>Scale inputs to unit variance.</p>
-            </div>
-            <button id="local-cca-parameters-next">Run</button>
           </div>
 
           <div id="local-cca-running" class="runningModel">
@@ -434,6 +420,69 @@ rights in this software.
 
         /* Local CCA  user interface */
 
+        var localCCAParametersLayout;
+        var localCCAParametersLayoutOptions = {
+          defaults: {
+
+          },
+          north: {
+
+          },
+          west: {
+            size: $("#local-cca-parameters-layout").width()/2,
+            onresize: function(paneName, paneElement, paneState, paneOptions, layoutName){
+              // localCCAParametersLayout.sizePane("west", ($("#local-cca-parameters-layout").width()-100)/2);
+              // console.log("onresize west pane to: " + ($("#local-cca-parameters-layout").width()-100)/2);
+            },
+            onresize_end: function(paneName, paneElement, paneState, paneOptions, layoutName){
+              localCCAParametersLayout.sizePane("west", ($("#local-cca-parameters-layout").width()-100)/2);
+              // console.log("onresize_end west pane to: " + ($("#local-cca-parameters-layout").width()-100)/2);
+              var leftoverHeight = paneElement.height();
+              // console.log("leftoverHeight: " + leftoverHeight);
+              paneElement.children().not("#variables").each(function(index, element){
+                leftoverHeight = leftoverHeight - $(element).outerHeight(true);
+              });
+              // console.log("leftoverHeight: " + leftoverHeight);
+              var variables = $("#variables", paneElement);
+              // console.log("variables: " + variables);
+              var marginBorderPaddingHeight = variables.outerHeight() - variables.height();
+              // console.log("marginBorderPaddingHeight: " + marginBorderPaddingHeight);
+              variables.height( leftoverHeight - marginBorderPaddingHeight );
+              // console.log("variables height: " + (leftoverHeight - marginBorderPaddingHeight));
+            },
+          },
+          center: {
+
+          },
+          east: {
+            onresize: function(paneName, paneElement, paneState, paneOptions, layoutName){
+              //localCCAParametersLayout.sizePane("east", ($("#local-cca-parameters-layout").width()-100)/2);
+            },
+            onresize_end: function(paneName, paneElement, paneState, paneOptions, layoutName){
+              localCCAParametersLayout.sizePane("east", ($("#local-cca-parameters-layout").width()-100)/2);
+              // console.log("onresize_end west pane to: " + ($("#local-cca-parameters-layout").width()-100)/2);
+              var leftoverHeight = paneElement.height();
+              // console.log("leftoverHeight: " + leftoverHeight);
+              paneElement.children().not(".CCAVariableSelect").each(function(index, element){
+                leftoverHeight = leftoverHeight - $(element).outerHeight(true);
+              });
+              // console.log("leftoverHeight: " + leftoverHeight);
+              var inputs = $("#inputs", paneElement);
+              var outputs = $("#outputs", paneElement);
+              // console.log("variables: " + variables);
+              var inputsMarginBorderPaddingHeight = inputs.outerHeight() - inputs.height();
+              var outputsMarginBorderPaddingHeight = outputs.outerHeight() - outputs.height();
+              // console.log("marginBorderPaddingHeight: " + marginBorderPaddingHeight);
+              inputs.height( leftoverHeight/2 - inputsMarginBorderPaddingHeight );
+              outputs.height( leftoverHeight/2 - outputsMarginBorderPaddingHeight );
+              // console.log("variables height: " + (leftoverHeight - marginBorderPaddingHeight));
+            },
+          },
+          south: {
+
+          },
+        };
+
         local_cca_model = null;
         $("#local-cca-form").dialog(
         {
@@ -448,6 +497,17 @@ rights in this software.
             $("#local-cca-parameters").css("display", "none");
             $("#local-cca-running").css("display", "none");
             $("#local-cca-parameters-next").button("enable");
+            // if (!localCCAParametersLayout)
+            //   // init layout *the first time* dialog opens
+            //   localCCAParametersLayout = $("#local-cca-parameters-layout").layout( localCCAParametersLayoutOptions );
+            // else
+            //   // just in case - probably not required
+            //   localCCAParametersLayout.resizeAll(); 
+          },
+          resize : function()
+          {
+            localCCAParametersLayout.resizeAll();
+            // console.log("resize: " + $("#local-cca-parameters-layout").width()/2);
           },
           close : function()
           {
@@ -468,7 +528,7 @@ rights in this software.
               });
             }
             local_cca_model = null;
-          }
+          },
         });
         $("#local-cca-basics-next").button().click(function()
         {
@@ -524,6 +584,15 @@ rights in this software.
                 url : "{{server-root}}models/" + local_cca_model + "/tables/data-table/arrays/0/metadata",
                 success : function(table)
                 {
+                  $("#local-cca-browse").css("display", "none");
+                  $("#local-cca-parameters").css("display", "block");
+
+                  if (!localCCAParametersLayout){
+                    // init layout *the first time* dialog opens
+                    localCCAParametersLayout = $("#local-cca-parameters-layout").layout( localCCAParametersLayoutOptions );
+                  }
+                  localCCAParametersLayout.resizeAll(); 
+
                   $("#variables, #inputs, #outputs, #unavailable").empty();
                   var variables = $("#variables");
 
@@ -553,9 +622,9 @@ rights in this software.
                     });
                   $("#move-from-variables-to-inputs, #move-from-inputs-to-variables, #move-from-inputs-to-outputs, #move-from-outputs-to-inputs, #move-from-variables-to-outputs, #move-from-outputs-to-variables")
                     .click(function(e){
-                      console.log("you clicked: " + $(this).attr("id"));
-                      console.log("move from: " + $(this).data("source"));
-                      console.log("move to: " + $(this).data("destination"));
+                      // console.log("you clicked: " + $(this).attr("id"));
+                      // console.log("move from: " + $(this).data("source"));
+                      // console.log("move to: " + $(this).data("destination"));
                       $('option:selected', "#" + $(this).data("source") ).remove().appendTo('#' + $(this).data("destination") );
                     })
                     ;
@@ -564,7 +633,7 @@ rights in this software.
                   {
                     var target = variables;
                     if( (table["column-types"][index] == "string") || (table["column-min"][index] == table["column-max"][index]) ) {
-                      $("#unavailable-wrapper").show();
+                      $(".unavailable").show();
                       target = $("#unavailable");
                     }
                     var option = $("<option>").val(index).text(column).appendTo(target);
@@ -608,8 +677,7 @@ rights in this software.
                   // });
 
                   $("#local-cca-scale-inputs").attr("checked", "checked");
-                  $("#local-cca-browse").css("display", "none");
-                  $("#local-cca-parameters").css("display", "block");
+                  
                 }
               });
             },
