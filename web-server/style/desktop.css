@@ -1058,3 +1058,16 @@ a.clicker {
 #local-cca-parameters-layout #local-cca-scale-inputs-container {
   float: left;
 }
+#local-cca-parameters-layout .leftRightButtons {
+  position: absolute;
+}
+#local-cca-parameters-layout .leftRightButtons button {
+  display: block;
+}
+#local-cca-parameters-layout .variablesButtons button {
+  height: 20px;
+}
+#local-cca-parameters-layout #inputs-outputs-buttons {
+  text-align: center;
+  margin-top: 10px;
+}

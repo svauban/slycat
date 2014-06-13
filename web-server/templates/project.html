@@ -127,11 +127,11 @@ rights in this software.
                 </select>
               </div>
               <div class="ui-layout-center">
-                <div id="inputs-variables-buttons">
+                <div id="inputs-variables-buttons" class="variablesButtons leftRightButtons">
                   <button id="move-from-variables-to-inputs" data-source="variables" data-destination="inputs" value="Move to Inputs" />
                   <button id="move-from-inputs-to-variables" data-source="inputs" data-destination="variables" value="Move to Variables" />
                 </div>
-                <div id="outputs-variables-buttons">
+                <div id="outputs-variables-buttons" class="variablesButtons leftRightButtons">
                   <button id="move-from-variables-to-outputs" data-source="variables" data-destination="outputs" value="Move to Outputs" />
                   <button id="move-from-outputs-to-variables" data-source="outputs" data-destination="variables" value="Move to Variables" />
                 </div>
@@ -142,7 +142,7 @@ rights in this software.
                   <option>First</option>
                   <option>Second</option>
                 </select>
-                <div id="inputs-outputs-buttons">
+                <div id="inputs-outputs-buttons" class="variablesButtons">
                   <button id="move-from-inputs-to-outputs" data-source="inputs" data-destination="outputs" value="Move to Outputs" />
                   <button id="move-from-outputs-to-inputs" data-source="outputs" data-destination="inputs" value="Move to Inputs" />
                 </div>
@@ -452,7 +452,27 @@ rights in this software.
             },
           },
           center: {
-
+            onresize_end: function(paneName, paneElement, paneState, paneOptions, layoutName){
+              // var paneHeight = paneElement.height();
+              var paneWidth = paneElement.width();
+              var inputButtons = $("#inputs-variables-buttons", paneElement);
+              var outputButtons = $("#outputs-variables-buttons", paneElement);
+              // var inputButtonsTop  = (paneHeight/4) - (inputButtons.outerHeight()/2);
+              // var outputButtonsTop = ((paneHeight/4)*3) - (outputButtons.outerHeight()/2);
+              var inputButtonsLeft = (paneWidth/2) - (inputButtons.outerWidth()/2);
+              var outputButtonsLeft = (paneWidth/2) - (outputButtons.outerWidth()/2);
+              inputButtons.css({left: inputButtonsLeft, });
+              outputButtons.css({left: outputButtonsLeft, });
+              // paneElement.children().not(".CCAVariableSelect").each(function(index, element){
+              //   leftoverHeight = leftoverHeight - $(element).outerHeight(true);
+              // });
+              // var inputs = $("#inputs", paneElement);
+              // var outputs = $("#outputs", paneElement);
+              // var inputsMarginBorderPaddingHeight = inputs.outerHeight() - inputs.height();
+              // var outputsMarginBorderPaddingHeight = outputs.outerHeight() - outputs.height();
+              // inputs.height( leftoverHeight/2 - inputsMarginBorderPaddingHeight );
+              // outputs.height( leftoverHeight/2 - outputsMarginBorderPaddingHeight );
+            },
           },
           east: {
             onresize: function(paneName, paneElement, paneState, paneOptions, layoutName){
@@ -460,22 +480,27 @@ rights in this software.
             },
             onresize_end: function(paneName, paneElement, paneState, paneOptions, layoutName){
               localCCAParametersLayout.sizePane("east", ($("#local-cca-parameters-layout").width()-100)/2);
-              // console.log("onresize_end west pane to: " + ($("#local-cca-parameters-layout").width()-100)/2);
               var leftoverHeight = paneElement.height();
-              // console.log("leftoverHeight: " + leftoverHeight);
               paneElement.children().not(".CCAVariableSelect").each(function(index, element){
                 leftoverHeight = leftoverHeight - $(element).outerHeight(true);
               });
-              // console.log("leftoverHeight: " + leftoverHeight);
               var inputs = $("#inputs", paneElement);
               var outputs = $("#outputs", paneElement);
-              // console.log("variables: " + variables);
               var inputsMarginBorderPaddingHeight = inputs.outerHeight() - inputs.height();
               var outputsMarginBorderPaddingHeight = outputs.outerHeight() - outputs.height();
-              // console.log("marginBorderPaddingHeight: " + marginBorderPaddingHeight);
               inputs.height( leftoverHeight/2 - inputsMarginBorderPaddingHeight );
               outputs.height( leftoverHeight/2 - outputsMarginBorderPaddingHeight );
-              // console.log("variables height: " + (leftoverHeight - marginBorderPaddingHeight));
+
+              var paneHeight = paneElement.height();
+              var centerPane = $("#local-cca-parameters-layout .ui-layout-center");
+              var inputButtons = $("#inputs-variables-buttons", centerPane);
+              var outputButtons = $("#outputs-variables-buttons", centerPane);
+              var centerOfInputsSelect = (inputs.offset().top - inputs.parent().offset().top) + (inputs.outerHeight()/2);
+              var centerOfOutputsSelect = (outputs.offset().top - outputs.parent().offset().top) + (outputs.outerHeight()/2);
+              var inputButtonsTop  = centerOfInputsSelect - (inputButtons.outerHeight()/2);
+              var outputButtonsTop = centerOfOutputsSelect - (outputButtons.outerHeight()/2);
+              inputButtons.css({top: inputButtonsTop, });
+              outputButtons.css({top: outputButtonsTop, });
             },
           },
           south: {
