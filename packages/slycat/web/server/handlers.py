@@ -25,15 +25,14 @@ import sys
 import slycat.hdf5
 import slycat.web.server
 import slycat.web.server.authentication
-import slycat.web.server.cache
 import slycat.web.server.database.couchdb
 import slycat.web.server.database.hdf5
 import slycat.web.server.model.cca
 import slycat.web.server.model.generic
+import slycat.web.server.model.parameter_image
 import slycat.web.server.model.timeseries
 import slycat.web.server.ssh
 import slycat.web.server.template
-import slycat.web.server.timer
 import threading
 import time
 import traceback
@@ -208,8 +207,9 @@ def post_project_models(pid):
       raise cherrypy.HTTPError("400 Missing required key: %s" % key)
 
   model_type = cherrypy.request.json["model-type"]
-  if model_type not in ["generic", "cca", "timeseries"]:
-    raise cherrypy.HTTPError("400 Allowed model types: generic, cca, timeseries")
+  allowed_model_types = ["generic", "cca", "timeseries", "parameter-image"]
+  if model_type not in allowed_model_types:
+    raise cherrypy.HTTPError("400 Allowed model types: %s" % ", ".join(allowed_model_types))
   marking = cherrypy.request.json["marking"]
   if marking not in cherrypy.request.app.config["slycat"]["marking"].types():
     raise cherrypy.HTTPError("400 Allowed marking types: %s" % ", ".join(["'%s'" % type for type in cherrypy.request.app.config["slycat"]["marking"].types()]))
@@ -332,6 +332,9 @@ def get_model(mid, **kwargs):
     if "model-type" in model and model["model-type"] in ["cca", "cca3"]:
       return slycat.web.server.template.render("model-cca3.html", context)
 
+    if "model-type" in model and model["model-type"] == "parameter-image":
+      return slycat.web.server.template.render("model-parameter-image.html", context)
+
     return slycat.web.server.template.render("model-generic.html", context)
 
 @cherrypy.tools.json_in(on = True)
@@ -361,7 +364,7 @@ def post_model_finish(mid):
 
   if model["state"] != "waiting":
     raise cherrypy.HTTPError("400 Only waiting models can be finished.")
-  if model["model-type"] not in ["generic", "cca", "cca3", "timeseries"]:
+  if model["model-type"] not in ["generic", "cca", "cca3", "timeseries", "parameter-image"]:
     raise cherrypy.HTTPError("500 Cannot finish unknown model type.")
 
   slycat.web.server.model.update(database, model, state="running", started = datetime.datetime.utcnow().isoformat(), progress = 0.0)
@@ -371,6 +374,8 @@ def post_model_finish(mid):
     slycat.web.server.model.cca.finish(database, model)
   elif model["model-type"] == "timeseries":
     slycat.web.server.model.timeseries.finish(database, model)
+  elif model["model-type"] == "parameter-image":
+    slycat.web.server.model.parameter_image.finish(database, model)
   cherrypy.response.status = "202 Finishing model."
 
 def put_model_file(mid, name, input=None, file=None):
@@ -406,7 +411,7 @@ def put_model_inputs(mid):
 
   slycat.web.server.model.copy_model_inputs(database, source, model)
 
-def put_model_table(mid, name, input=None, file=None, username=None, hostname=None, password=None, path=None):
+def put_model_table(mid, name, input=None, file=None, sid=None, path=None):
   database = slycat.web.server.database.couchdb.connect()
   model = database.get("model", mid)
   project = database.get("project", model["project"])
@@ -416,17 +421,17 @@ def put_model_table(mid, name, input=None, file=None, username=None, hostname=No
     raise cherrypy.HTTPError("400 Required input parameter is missing.")
   input = True if input == "true" else False
 
-  if file is not None and username is None and hostname is None and password is None and path is None:
+  if file is not None and sid is None and path is None:
     data = file.file.read()
     filename = file.filename
-  elif file is None and username is not None and hostname is not None and password is not None and path is not None:
-    filename = "%s@%s:%s" % (username, hostname, path)
-    session = slycat.web.server.cache.ssh_session(hostname, username, password)
-    if stat.S_ISDIR(session["sftp"].stat(path).st_mode):
-      raise cherrypy.HTTPError("400 Cannot load directory %s." % filename)
-    data = session["sftp"].file(path).read()
+  elif file is None and sid is not None and path is not None:
+    with slycat.web.server.ssh.get_session(sid) as session:
+      filename = "%s@%s:%s" % (session.username, session.hostname, path)
+      if stat.S_ISDIR(session.sftp.stat(path).st_mode):
+        raise cherrypy.HTTPError("400 Cannot load directory %s." % filename)
+      data = session.sftp.file(path).read()
   else:
-    raise cherrypy.HTTPError("400 Must supply a file parameter, or username, hostname, password, and path parameters.")
+    raise cherrypy.HTTPError("400 Must supply a file parameter, or sid and path parameters.")
   slycat.web.server.model.store_table_file(database, model, name, data, filename, nan_row_filtering=False, input=input)
 
 @cherrypy.tools.json_in(on = True)
@@ -501,6 +506,9 @@ def put_model_array_set_data(mid, name, array=None, attribute=None, hyperslice=N
 
   slycat.web.server.model.store_array_set_data(database, model, name, array, attribute, hyperslice, byteorder, data)
 
+def put_model_array_attribute_data(mid, name, array, attribute, hyperslice, byteorder=None, data=None):
+  cherrypy.log.error("put_model_array_attribute_data: arrayset %s array %s attribute %s hyperslice %s byteorder %s" % (name, array, attribute, hyperslice, byteorder))
+
 def delete_model(mid):
   couchdb = slycat.web.server.database.couchdb.connect()
   model = couchdb.get("model", mid)
@@ -542,9 +550,31 @@ def get_model_array_metadata(mid, aid, array):
     raise cherrypy.HTTPError("400 %s is not an array artifact." % aid)
 
   with slycat.web.server.database.hdf5.lock:
-    with slycat.web.server.database.hdf5.open(artifact) as file:
-      metadata = slycat.hdf5.get_array_metadata(file, array)
+    with slycat.web.server.database.hdf5.open(artifact, "r+") as file: # We open the file with writing enabled because retrieving statistics may need to update the cache.
+      hdf5_arrayset = slycat.hdf5.ArraySet(file)
+      hdf5_array = hdf5_arrayset[array]
+      metadata = dict(dimensions=hdf5_array.dimensions, attributes=hdf5_array.attributes, statistics=[hdf5_array.get_statistics(attribute) for attribute in range(len(hdf5_array.attributes))])
   return metadata
+
+@cherrypy.tools.json_out(on = True)
+def get_model_array_attribute_statistics(mid, aid, array, attribute):
+  database = slycat.web.server.database.couchdb.connect()
+  model = database.get("model", mid)
+  project = database.get("project", model["project"])
+  slycat.web.server.authentication.require_project_reader(project)
+
+  artifact = model.get("artifact:%s" % aid, None)
+  if artifact is None:
+    raise cherrypy.HTTPError(404)
+  artifact_type = model["artifact-types"][aid]
+  if artifact_type not in ["hdf5"]:
+    raise cherrypy.HTTPError("400 %s is not an array artifact." % aid)
+
+  with slycat.web.server.database.hdf5.lock:
+    with slycat.web.server.database.hdf5.open(artifact, "r+") as file: # We open the file with writing enabled because retrieving statistics may need to update the cache.
+      hdf5_arrayset = slycat.hdf5.ArraySet(file)
+      hdf5_array = hdf5_arrayset[array]
+      return hdf5_array.get_statistics(attribute)
 
 def get_model_array_attribute_chunk(mid, aid, array, attribute, **arguments):
   try:
@@ -582,19 +612,19 @@ def get_model_array_attribute_chunk(mid, aid, array, attribute, **arguments):
 
   with slycat.web.server.database.hdf5.lock:
     with slycat.web.server.database.hdf5.open(artifact) as file:
-      metadata = slycat.hdf5.get_array_metadata(file, array)
+      hdf5_arrayset = slycat.hdf5.ArraySet(file)
+      hdf5_array = hdf5_arrayset[array]
 
-      if not(0 <= attribute and attribute < len(metadata["attributes"])):
+      if not(0 <= attribute and attribute < len(hdf5_array.attributes)):
         raise cherrypy.HTTPError("400 Attribute argument out-of-range.")
-      if len(ranges) != len(metadata["dimensions"]):
+      if len(ranges) != hdf5_array.ndim:
         raise cherrypy.HTTPError("400 Ranges argument doesn't contain the correct number of dimensions.")
 
-      ranges = [(max(dimension["begin"], range[0]), min(dimension["end"], range[1])) for dimension, range in zip(metadata["dimensions"], ranges)]
-
+      ranges = [(max(dimension["begin"], range[0]), min(dimension["end"], range[1])) for dimension, range in zip(hdf5_array.dimensions, ranges)]
       index = tuple([slice(begin, end) for begin, end in ranges])
 
-      attribute_type =  metadata["attributes"][attribute]["type"]
-      data = slycat.hdf5.get_array_attribute(file, array, attribute)[index]
+      attribute_type =  hdf5_array.attributes[attribute]["type"]
+      data = hdf5_array.get_data(attribute)[index]
 
       if byteorder is None:
         return json.dumps(data.tolist())
@@ -623,13 +653,14 @@ def get_model_arrayset_metadata(mid, aid, **arguments):
 
   with slycat.web.server.database.hdf5.lock:
     with slycat.web.server.database.hdf5.open(artifact) as file:
+      arrayset = slycat.hdf5.ArraySet(file)
       results = []
-      for key in sorted([int(key) for key in file["array"].keys()])[arrays]:
-        array_metadata = slycat.hdf5.raw_array_metadata(file, key)
+      for key in sorted(arrayset.keys())[arrays]:
+        array = arrayset[key]
         results.append({
           "index" : int(key),
-          "attributes" : [{"name":name, "type":type} for name, type in zip(array_metadata["attribute-names"], array_metadata["attribute-types"])],
-          "dimensions" : [{"name":name, "type":type, "begin":begin, "end":end} for name, type, begin, end in zip(array_metadata["dimension-names"], array_metadata["dimension-types"], array_metadata["dimension-begin"], array_metadata["dimension-end"])],
+          "dimensions" : array.dimensions,
+          "attributes" : array.attributes,
           })
       return results
 
@@ -746,7 +777,7 @@ def get_table_sort_index(file, metadata, array_index, sort, index):
       index_key = "array/%s/index/%s" % (array_index, sort_column)
       if index_key not in file:
         cherrypy.log.error("Caching array index for file %s array %s attribute %s" % (file.filename, array_index, sort_column))
-        sort_index = numpy.argsort(slycat.hdf5.get_array_attribute(file, array_index, sort_column)[...], kind="mergesort")
+        sort_index = numpy.argsort(slycat.hdf5.ArraySet(file)[array_index].get_data(sort_column)[...], kind="mergesort")
         file[index_key] = sort_index
       else:
         cherrypy.log.error("Loading cached sort index.")
@@ -757,13 +788,15 @@ def get_table_sort_index(file, metadata, array_index, sort, index):
 
 def get_table_metadata(file, array_index, index):
   """Return table-oriented metadata for a 1D array, plus an optional index column."""
-  metadata = slycat.hdf5.get_array_metadata(file, array_index)
-  attributes = metadata["attributes"]
-  dimensions = metadata["dimensions"]
-  statistics = metadata["statistics"]
+  arrayset = slycat.hdf5.ArraySet(file)
+  array = arrayset[array_index]
 
-  if len(dimensions) != 1:
+  if array.ndim != 1:
     raise cherrypy.HTTPError("400 Not a table (1D array) artifact.")
+
+  dimensions = array.dimensions
+  attributes = array.attributes
+  statistics = [array.get_statistics(attribute) for attribute in range(len(attributes))]
 
   metadata = {
     "row-count" : dimensions[0]["end"] - dimensions[0]["begin"],
@@ -798,7 +831,7 @@ def get_model_table_metadata(mid, aid, array, index = None):
     raise cherrypy.HTTPError("400 %s is not an array artifact." % aid)
 
   with slycat.web.server.database.hdf5.lock:
-    with slycat.web.server.database.hdf5.open(artifact) as file:
+    with slycat.web.server.database.hdf5.open(artifact, "r+") as file: # We have to open the file with writing enabled because the statistics cache may need to be updated.
       metadata = get_table_metadata(file, array, index)
   return metadata
 
@@ -844,7 +877,7 @@ def get_model_table_chunk(mid, aid, array, rows=None, columns=None, index=None, 
         if index is not None and column == metadata["column-count"]-1:
           values = slice.tolist()
         else:
-          values = slycat.hdf5.get_array_attribute(file, array, column)[slice[slice_index].tolist()][slice_reverse_index].tolist()
+          values = slycat.hdf5.ArraySet(file)[array].get_data(column)[slice[slice_index].tolist()][slice_reverse_index].tolist()
           if type in ["float32", "float64"]:
             values = [None if numpy.isnan(value) else value for value in values]
         data.append(values)
@@ -979,23 +1012,44 @@ def get_user(uid):
 
 @cherrypy.tools.json_in(on = True)
 @cherrypy.tools.json_out(on = True)
-def post_browse():
+def post_remote():
   username = cherrypy.request.json["username"]
   hostname = cherrypy.request.json["hostname"]
-  path = cherrypy.request.json["path"]
   password = cherrypy.request.json["password"]
+  return {"sid":slycat.web.server.ssh.create_session(hostname, username, password)}
 
-  session = slycat.web.server.cache.ssh_session(hostname, username, password)
+@cherrypy.tools.json_in(on = True)
+@cherrypy.tools.json_out(on = True)
+def post_remote_browse():
+  sid = cherrypy.request.json["sid"]
+  path = cherrypy.request.json["path"]
 
-  try:
-    attributes = sorted(session["sftp"].listdir_attr(path), key=lambda x: x.filename)
-    names = [attribute.filename for attribute in attributes]
-    sizes = [attribute.st_size for attribute in attributes]
-    types = ["d" if stat.S_ISDIR(attribute.st_mode) else "f" for attribute in attributes]
-    response = {"path" : path, "names" : names, "sizes" : sizes, "types" : types}
-    return response
-  except IOError:
-    raise cherrypy.HTTPError("403 Forbidden")
+  with slycat.web.server.ssh.get_session(sid) as session:
+    try:
+      attributes = sorted(session.sftp.listdir_attr(path), key=lambda x: x.filename)
+      names = [attribute.filename for attribute in attributes]
+      sizes = [attribute.st_size for attribute in attributes]
+      types = ["d" if stat.S_ISDIR(attribute.st_mode) else "f" for attribute in attributes]
+      response = {"path" : path, "names" : names, "sizes" : sizes, "types" : types}
+      return response
+    except Exception as e:
+      cherrypy.log.error("Error accessing %s: %s %s" % (path, type(e), str(e)))
+      raise cherrypy.HTTPError("400 Remote access failed: %s" % str(e))
+
+def get_remote_file(sid, path):
+  #accept = cherrypy.lib.cptools.accept(["image/jpeg", "image/png"])
+  #cherrypy.response.headers["content-type"] = accept
+
+  with slycat.web.server.ssh.get_session(sid) as session:
+    try:
+      if stat.S_ISDIR(session.sftp.stat(path).st_mode):
+        raise cherrypy.HTTPError("400 Can't read directory.")
+      return session.sftp.file(path).read()
+    except Exception as e:
+      cherrypy.log.error("Exception reading remote file %s: %s %s" % (path, type(e), str(e)))
+      if str(e) == "Garbage packet received":
+        raise cherrypy.HTTPError("500 Remote access failed: %s" % str(e))
+      raise cherrypy.HTTPError("400 Remote access failed: %s" % str(e))
 
 def post_events(event):
   # We don't actually have to do anything here, since the request is already logged.

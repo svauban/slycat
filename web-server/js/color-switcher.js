@@ -20,8 +20,8 @@ $.widget("slycat.colorswitcher",
       "night":
       {
         "label": "Night",
-        "background": d3.rgb("#333333"),
-        "null_color": "gray",
+        "background": d3.rgb(128, 128, 128),
+        "null_color": "rgb(75,75,75)",
         "opacity": "0.5",
         "colors":
         [
@@ -198,6 +198,22 @@ $.widget("slycat.colorswitcher",
       domain.push(domain_scale(i));
     result = d3.scale.linear().domain(domain).range(this.color_maps[name].colors);
     return result;
+  },
+
+  get_gradient_data: function(name)
+  {
+    var self = this;
+
+    if(name === undefined)
+      name = this.options.colormap;
+
+    var colors = self.color_maps[name]["colors"];
+    var length = colors.length;
+    var data = [];
+    for(var i=0; i < length; i++){
+      data.push({offset: i*(100/(length-1)), color: colors[length-1-i],});
+    }
+    return data;
   },
 
   setUpColorMapsForAllColumns: function(name, columns)
