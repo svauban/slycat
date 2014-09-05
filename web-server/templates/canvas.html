@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="http://d3js.org/d3.v3.min.js" type="text/javascript"></script>
+	<script type="text/javascript">
+	//&lt;![CDATA[ 
+	window.onload=function(){
+	var base = d3.select("#vis");
+	var width = 800,
+		  height = 600;
+
+	var data = d3.range(50000)
+		.map(function(currentValue, index, array){
+			return {
+				index: currentValue,
+				x: Math.random() * (width-20) + 10,
+				y: Math.random() * (height-20) + 10,
+			};
+		})
+		;
+
+	var chart = base.append("canvas")
+	  .attr("width", width)
+	  .attr("height", height);
+	var context = chart.node().getContext("2d");
+	context.fillStyle = "orange";
+
+	draw();
+
+	function draw() {
+	  var i = -1, n = data.length, d, cx, cy;
+	  while (++i < n) {
+	  	context.beginPath();
+	    d = data[i];
+	    cx = d.x;
+	    cy = d.y;
+	    //context.moveTo(cx, cy);
+	    context.arc(cx, cy, 3, 0, 2 * Math.PI, false);
+	    context.stroke();
+	    context.fill();
+	  }
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+	var dataContainer = base.append("custom");
+
+	function drawCustom(data) {
+	  var scale = d3.scale.linear()
+	    .range([10, 390])
+	    .domain(d3.extent(data));
+	  
+	  var dataBinding = dataContainer.selectAll("custom.rect")
+	    .data(data, function(d) { return d; });
+	  
+	  dataBinding
+	    .attr("size", 15)
+	    .attr("fillStyle", "green");
+	  
+	  dataBinding.enter()
+	      .append("custom")
+	      .classed("rect", true)
+	      .attr("x", scale)
+	      .attr("y", 100)
+	      .attr("size", 8)
+	      .attr("fillStyle", "red");
+	  
+	  dataBinding.exit()
+	    .attr("size", 5)
+	    .attr("fillStyle", "lightgrey");
+
+	  drawCanvas();
+	}
+
+	function drawCanvas() {
+
+	  // clear canvas
+	  context.fillStyle = "#fff";
+	  context.rect(0,0,chart.attr("width"),chart.attr("height"));
+	  context.fill();
+	  
+	  var elements = dataContainer.selectAll("custom.rect");
+	  elements.each(function(d) {
+	    var node = d3.select(this);
+	    
+	    context.beginPath();
+	    context.fillStyle = node.attr("fillStyle");
+	    context.rect(node.attr("x"), node.attr("y"), node.attr("size"), node.attr("size"));
+	    context.fill();
+	    context.closePath();
+	    
+	  })
+	}
+
+	// drawCustom([1,2,13,20,23]);
+	// drawCustom([1,2,12,16,20]);
+
+	  
+
+	}
+	//]]&gt;  
+	</script>
+</head>
+<body>
+	<div id="vis"></div>
+</body>
+</html>
