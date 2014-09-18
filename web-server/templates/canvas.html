@@ -123,7 +123,7 @@
   var start = performance.now();
 	drawCirclesKinetic(layer);
 	var end = performance.now();
-	console.log("Time to render " + numberOfElements + " Kinetic elements: " + (end-start) + " milliseconds.");
+	console.log("Time to render " + numberOfElements + " Kinetic circle elements: " + (end-start) + " milliseconds.");
 
 	function drawCirclesKinetic(layer) {
 	  var i = -1, n = data.length, d, cx, cy;
@@ -145,7 +145,119 @@
 	  // add the layer to the stage
   	stage.add(layer);
 	}
+
+	var tooltipLayer = new Kinetic.Layer();
+  var dragLayer = new Kinetic.Layer();
+  var tooltip = new Kinetic.Label({
+    opacity: 0.75,
+    visible: false,
+    listening: false
+  });
+  tooltip.add(new Kinetic.Tag({
+    fill: 'black',
+    pointerDirection: 'down',
+    pointerWidth: 10,
+    pointerHeight: 10,
+    lineJoin: 'round',
+    shadowColor: 'black',
+    shadowBlur: 10,
+    shadowOffset: {x:10, y:10},
+    shadowOpacity: 0.2
+  }));
+
+  tooltip.add(new Kinetic.Text({
+    text: '',
+    fontFamily: 'Calibri',
+    fontSize: 18,
+    padding: 5,
+    fill: 'white'
+  }));
   
+  tooltipLayer.add(tooltip);
+
+  stage.add(tooltipLayer);
+  stage.add(dragLayer);
+
+  stage.on('mouseover mousemove dragmove', function(evt) {
+	  var node = evt.target;
+	  if (node) {
+	    // update tooltip
+	    var mousePos = node.getStage().getPointerPosition();
+	    tooltip.position({x:mousePos.x, y:mousePos.y - 5});
+	    tooltip.getText().text("node: " + node.x() + ", color: " + node.fill());
+	    tooltip.show();
+	    tooltipLayer.batchDraw();
+	  }
+	}); 
+
+	stage.on('mouseout', function(evt) {
+	  tooltip.hide();
+	  tooltipLayer.draw();
+	});
+
+	var startLayer;
+
+	stage.on('mousedown', function(evt) {
+	  var shape = evt.target;
+	  if (shape) {
+	    startLayer = shape.getLayer();
+	    shape.moveTo(dragLayer);
+	    startLayer.draw();
+	    // manually trigger drag and drop
+	    shape.startDrag();
+	  }
+	});
+
+	stage.on('mouseup', function(evt) {
+	  var shape = evt.target;
+	  if (shape) {
+	    shape.moveTo(startLayer);
+	    dragLayer.draw();
+	    startLayer.draw();
+	  }
+	});
+
+
+
+
+
+
+
+  
+  var stage2 = new Kinetic.Stage({
+    container: 'container2',
+    width: width,
+    height: height
+  });
+
+  var layer2 = new Kinetic.Layer();
+
+  var start = performance.now();
+	drawSquaresKinetic(layer2);
+	var end = performance.now();
+	console.log("Time to render " + numberOfElements + " Kinetic square elements: " + (end-start) + " milliseconds.");
+
+	function drawSquaresKinetic(layer) {
+	  var i = -1, n = data.length, d, cx, cy;
+	  while (++i < n) {
+	    d = data[i];
+	    cx = d.x;
+	    cy = d.y;
+	    var rect = new Kinetic.Rect({
+        x: cx,
+        y: cy,
+        width: 6,
+        height: 6,
+        fill: 'green',
+        stroke: 'black',
+        strokeWidth: 1
+      });
+		  // add the shape to the layer
+  		layer.add(rect);
+	  }
+	  // add the layer to the stage
+  	stage2.add(layer);
+	}
   
 
 
@@ -217,5 +329,6 @@
 <body>
 	<div id="vis"></div>
 	<div id="container"></div>
+	<div id="container2"></div>
 </body>
 </html>
