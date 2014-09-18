@@ -1,15 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<script src="http://d3js.org/d3.v3.min.js" type="text/javascript"></script>
+	<style type="text/css">
+    canvas { border: 1px solid black; }
+  </style>
+	<script src="d3.v3.min.js" type="text/javascript"></script>
+	<script src="kinetic-v5.1.0.min.js" type="text/javascript"></script>
 	<script type="text/javascript">
 	//&lt;![CDATA[ 
 	window.onload=function(){
 	var base = d3.select("#vis");
 	var width = 800,
-		  height = 600;
+		  height = 600
+		  numberOfElements = 50000;
 
-	var data = d3.range(50000)
+	var data = d3.range(numberOfElements)
 		.map(function(currentValue, index, array){
 			return {
 				index: currentValue,
@@ -19,15 +24,42 @@
 		})
 		;
 
-	var chart = base.append("canvas")
+	var circleChart = base.append("canvas")
 	  .attr("width", width)
 	  .attr("height", height);
-	var context = chart.node().getContext("2d");
-	context.fillStyle = "orange";
+	var circleContext = circleChart.node().getContext("2d");
+	circleContext.fillStyle = "orange";
+	circleContext.strokeStyle = "black";
+	circleContext.lineWidth = 1.5;
 
-	draw();
+	var squareChart = base.append("canvas")
+	  .attr("width", width)
+	  .attr("height", height);
+	var squareContext = squareChart.node().getContext("2d");
+	squareContext.fillStyle = "orange";
+	squareContext.strokeStyle = "black";
+	squareContext.lineWidth = 1;
 
-	function draw() {
+	var circleOffscreenChart = base.append("canvas")
+	  .attr("width", width)
+	  .attr("height", height);
+	var circleOffscreenContext = circleOffscreenChart.node().getContext("2d");
+	circleOffscreenContext.fillStyle = "orange";
+	circleOffscreenContext.strokeStyle = "black";
+	circleOffscreenContext.lineWidth = 1;
+
+
+	var start = performance.now();
+	drawCircles(circleContext);
+	var end = performance.now();
+	console.log("Time to render " + numberOfElements + " circle elements: " + (end-start) + " milliseconds.");
+
+	var start = performance.now();
+	drawSquares(squareContext);
+	var end = performance.now();
+	console.log("Time to render " + numberOfElements + " square elements: " + (end-start) + " milliseconds.");
+
+	function drawCircles(context) {
 	  var i = -1, n = data.length, d, cx, cy;
 	  while (++i < n) {
 	  	context.beginPath();
@@ -41,8 +73,80 @@
 	  }
 	}
 
+	function drawSquares(context) {
+		var i = -1, n = data.length, d, cx, cy;
+	  while (++i < n) {
+	    d = data[i];
+	    cx = Math.floor(d.x) + 0.5;
+	    cy = Math.floor(d.y) + 0.5;
+	    context.fillRect(cx, cy, 6, 6);
+	    context.strokeRect(cx, cy, 6, 6);
+	  }
+	}
 
+	// Create a second "buffer" canvas but don't append it to the document
+	var tmpCanvas = document.createElement('canvas');
+	tmpCanvas.width = 16;
+	tmpCanvas.height = 16;
+	var tmpCtx = tmpCanvas.getContext('2d');
+	tmpCtx.fillStyle = "blue";
+	tmpCtx.strokeStyle = "black";
+	tmpCtx.lineWidth = 1.5;
+	tmpCtx.beginPath();
+	tmpCtx.arc(4, 4, 3, 0, 2 * Math.PI, false);
+	tmpCtx.stroke();
+	tmpCtx.fill();
 
+	var start = performance.now();
+	drawCirclesOffscreen(circleOffscreenContext);
+	var end = performance.now();
+	console.log("Time to render " + numberOfElements + " image elements: " + (end-start) + " milliseconds.");
+
+	function drawCirclesOffscreen(context) {
+	  var i = -1, n = data.length, d, cx, cy;
+	  while (++i < n) {
+	    d = data[i];
+	    cx = d.x;
+	    cy = d.y;
+	    context.drawImage(tmpCanvas, cx, cy);
+	  }
+	}
+
+	var stage = new Kinetic.Stage({
+    container: 'container',
+    width: width,
+    height: height
+  });
+
+  var layer = new Kinetic.Layer();
+
+  var start = performance.now();
+	drawCirclesKinetic(layer);
+	var end = performance.now();
+	console.log("Time to render " + numberOfElements + " Kinetic elements: " + (end-start) + " milliseconds.");
+
+	function drawCirclesKinetic(layer) {
+	  var i = -1, n = data.length, d, cx, cy;
+	  while (++i < n) {
+	    d = data[i];
+	    cx = d.x;
+	    cy = d.y;
+	    var circle = new Kinetic.Circle({
+		    x: cx,
+		    y: cy,
+		    radius: 3.5,
+		    fill: 'red',
+		    stroke: 'black',
+		    strokeWidth: 1
+		  });
+		  // add the shape to the layer
+  		layer.add(circle);
+	  }
+	  // add the layer to the stage
+  	stage.add(layer);
+	}
+  
+  
 
 
 
@@ -112,5 +216,6 @@
 </head>
 <body>
 	<div id="vis"></div>
+	<div id="container"></div>
 </body>
 </html>
