@@ -64,9 +64,10 @@ $.widget("parameter_image.scatterplot",
     });
 
     // Setup the scatterplot ...
-    self.canvas = d3.select(self.element.get(0)).append("canvas")
+    self.canvas_datum = d3.select(self.element.get(0)).append("canvas")
       .style({'position':'absolute'})
       ;
+    self.canvas_datum_layer = self.canvas_datum.node().getContext("2d");
     self.svg = d3.select(self.element.get(0)).append("svg");
     self.x_axis_layer = self.svg.append("g").attr("class", "x-axis");
     self.y_axis_layer = self.svg.append("g").attr("class", "y-axis");
@@ -430,7 +431,7 @@ $.widget("parameter_image.scatterplot",
       var total_height = self.options.height;
       var width = Math.min(total_width, total_height);
       var width_offset = (total_width - width) / 2;
-      self.canvas.style({
+      self.canvas_datum.style({
         "left" : (width_offset + self.options.border) + "px",
         //"width" : (total_width - width_offset - self.options.border) - (width_offset + self.options.border) + "px"
         "width" : (width - (2 * self.options.border)) + "px"
@@ -446,7 +447,7 @@ $.widget("parameter_image.scatterplot",
       var total_height = self.options.height;
       var height = Math.min(total_width, total_height);
       var height_offset = (total_height - height) / 2;
-      self.canvas.style({
+      self.canvas_datum.style({
         "top" : (height_offset + self.options.border) + "px",
         //"height" : (total_height - height_offset - self.options.border - 40) - (height_offset + self.options.border) + "px"
         "height" : height - (2 * self.options.border) - 40 + "px"
