@@ -64,6 +64,9 @@ $.widget("parameter_image.scatterplot",
     });
 
     // Setup the scatterplot ...
+    self.canvas = d3.select(self.element.get(0)).append("canvas")
+      .style({'position':'absolute'})
+      ;
     self.svg = d3.select(self.element.get(0)).append("svg");
     self.x_axis_layer = self.svg.append("g").attr("class", "x-axis");
     self.y_axis_layer = self.svg.append("g").attr("class", "y-axis");
@@ -422,12 +425,32 @@ $.widget("parameter_image.scatterplot",
     {
       self.element.attr("width", self.options.width);
       self.svg.attr("width", self.options.width);
+
+      var total_width = self.options.width;
+      var total_height = self.options.height;
+      var width = Math.min(total_width, total_height);
+      var width_offset = (total_width - width) / 2;
+      self.canvas.style({
+        "left" : (width_offset + self.options.border) + "px",
+        //"width" : (total_width - width_offset - self.options.border) - (width_offset + self.options.border) + "px"
+        "width" : (width - (2 * self.options.border)) + "px"
+      });
     }
 
     if(self.updates["update_height"])
     {
       self.element.attr("height", self.options.height);
       self.svg.attr("height", self.options.height);
+
+      var total_width = self.options.width;
+      var total_height = self.options.height;
+      var height = Math.min(total_width, total_height);
+      var height_offset = (total_height - height) / 2;
+      self.canvas.style({
+        "top" : (height_offset + self.options.border) + "px",
+        //"height" : (total_height - height_offset - self.options.border - 40) - (height_offset + self.options.border) + "px"
+        "height" : height - (2 * self.options.border) - 40 + "px"
+      });
     }
 
     if(self.updates["update_indices"])
@@ -447,7 +470,16 @@ $.widget("parameter_image.scatterplot",
       var width_offset = (total_width - width) / 2
       var height_offset = (total_height - height) / 2
 
-      self.x_scale = d3.scale.linear().domain([d3.min(self.options.x), d3.max(self.options.x)]).range([0 + width_offset + self.options.border, total_width - width_offset - self.options.border]);
+      self.x_scale = d3.scale.linear()
+        .domain(
+          [d3.min(self.options.x), d3.max(self.options.x)])
+        .range([0 + width_offset + self.options.border, total_width - width_offset - self.options.border])
+        ;
+      self.x_scale_canvas = d3.scale.linear()
+        .domain(
+          [d3.min(self.options.x), d3.max(self.options.x)])
+        .range([0, width - (2 * self.options.border)])
+        ;
       self.x_axis = d3.svg.axis().scale(self.x_scale).orient("bottom");
       self.x_axis_layer
         .attr("transform", "translate(0," + (total_height - height_offset - self.options.border - 40) + ")")
@@ -461,11 +493,22 @@ $.widget("parameter_image.scatterplot",
       var total_height = self.element.attr("height");
       var width = Math.min(self.element.attr("width"), self.element.attr("height"));
       var height = Math.min(self.element.attr("width"), self.element.attr("height"));
-      var width_offset = (total_width - width) / 2
-      var height_offset = (total_height - height) / 2
+      var width_offset = (total_width - width) / 2;
+      var height_offset = (total_height - height) / 2;
       self.y_axis_offset = 0 + width_offset + self.options.border;
 
-      self.y_scale = d3.scale.linear().domain([d3.min(self.options.y), d3.max(self.options.y)]).range([total_height - height_offset - self.options.border - 40, 0 + height_offset + self.options.border]);
+      self.y_scale = d3.scale.linear()
+        .domain(
+          [d3.min(self.options.y), d3.max(self.options.y)])
+        .range(
+          [total_height - height_offset - self.options.border - 40, 0 + height_offset + self.options.border])
+        ;
+      self.y_scale_canvas = d3.scale.linear()
+        .domain(
+          [d3.min(self.options.y), d3.max(self.options.y)])
+        .range(
+          [height - (2 * self.options.border) - 40, 0])
+        ;
       self.y_axis = d3.svg.axis().scale(self.y_scale).orient("left");
       self.y_axis_layer
         .attr("transform", "translate(" + self.y_axis_offset + ",0)")
@@ -528,39 +571,39 @@ $.widget("parameter_image.scatterplot",
       var filtered_indices = self.options.filtered_indices;
 
       // Draw points ...
-      var circle = self.datum_layer.selectAll(".datum")
-        .data(filtered_indices, function(d, i){ 
-          return d;
-        })
-        ;
-      circle.exit()
-        .remove()
-        ;
-      circle.enter()
-        .append("circle")
-        .attr("class", "datum")
-        .attr("r", 4)
-        .attr("stroke", "black")
-        .attr("linewidth", 1)
-        .attr("data-index", function(d, i) { return d; })
-        .on("mouseover", function(d, i) { 
-          self._schedule_hover(d);
-        })
-        .on("mouseout", function(d, i) { 
-          self._cancel_hover(); 
-        })
-        ;
-      circle
-        .attr("cx", function(d, i) { return self.x_scale( x[d] ); })
-        .attr("cy", function(d, i) { return self.y_scale( y[d] ); })
-        .attr("fill", function(d, i) { 
-          var value = v[d];
-          if(Number.isNaN(value))
-            return $("#color-switcher").colorswitcher("get_null_color");
-          else
-            return self.options.color(value); 
-        })
-        ;
+      // var circle = self.datum_layer.selectAll(".datum")
+      //   .data(filtered_indices, function(d, i){ 
+      //     return d;
+      //   })
+      //   ;
+      // circle.exit()
+      //   .remove()
+      //   ;
+      // circle.enter()
+      //   .append("circle")
+      //   .attr("class", "datum")
+      //   .attr("r", 4)
+      //   .attr("stroke", "black")
+      //   .attr("linewidth", 1)
+      //   .attr("data-index", function(d, i) { return d; })
+      //   .on("mouseover", function(d, i) { 
+      //     self._schedule_hover(d);
+      //   })
+      //   .on("mouseout", function(d, i) { 
+      //     self._cancel_hover(); 
+      //   })
+      //   ;
+      // circle
+      //   .attr("cx", function(d, i) { return self.x_scale( x[d] ); })
+      //   .attr("cy", function(d, i) { return self.y_scale( y[d] ); })
+      //   .attr("fill", function(d, i) { 
+      //     var value = v[d];
+      //     if(Number.isNaN(value))
+      //       return $("#color-switcher").colorswitcher("get_null_color");
+      //     else
+      //       return self.options.color(value); 
+      //   })
+      //   ;
     }
 
     if(self.updates["render_selection"])
@@ -704,7 +747,7 @@ $.widget("parameter_image.scatterplot",
       var height = Math.min(self.element.attr("width"), self.element.attr("height"));
       var rectHeight = parseInt((height - self.options.border - 40)/2);
       var datum_layer_width = self.datum_layer.node().getBBox().width;
-      var width_offset = (total_width + datum_layer_width) / 2;
+      var width_offset = (total_width + width) / 2;
       var y_axis_layer_width = self.y_axis_layer.node().getBBox().width;
 
       if( self.legend_layer.attr("data-status") != "moved" )

@@ -2,10 +2,12 @@
 <html>
 <head>
 	<style type="text/css">
-    canvas { border: 1px solid black; }
+    canvas, svg { border: 1px solid black !important; }
+    .kinetic { display: inline-block; }
   </style>
 	<script src="d3.v3.min.js" type="text/javascript"></script>
 	<script src="kinetic-v5.1.0.min.js" type="text/javascript"></script>
+	<script src="fabric.min.js" type="text/javascript"></script>
 	<script type="text/javascript">
 	//&lt;![CDATA[ 
 	window.onload=function(){
@@ -32,6 +34,14 @@
 	circleContext.strokeStyle = "black";
 	circleContext.lineWidth = 1.5;
 
+	var circleChartColors = base.append("canvas")
+	  .attr("width", width)
+	  .attr("height", height);
+	var circleContextColors = circleChartColors.node().getContext("2d");
+	circleContextColors.fillStyle = "orange";
+	circleContextColors.strokeStyle = "black";
+	circleContextColors.lineWidth = 1.5;
+
 	var squareChart = base.append("canvas")
 	  .attr("width", width)
 	  .attr("height", height);
@@ -39,6 +49,14 @@
 	squareContext.fillStyle = "orange";
 	squareContext.strokeStyle = "black";
 	squareContext.lineWidth = 1;
+
+	var squareChartColors = base.append("canvas")
+	  .attr("width", width)
+	  .attr("height", height);
+	var squareContextColors = squareChartColors.node().getContext("2d");
+	squareContextColors.fillStyle = "orange";
+	squareContextColors.strokeStyle = "black";
+	squareContextColors.lineWidth = 1;
 
 	var circleOffscreenChart = base.append("canvas")
 	  .attr("width", width)
@@ -55,9 +73,19 @@
 	console.log("Time to render " + numberOfElements + " circle elements: " + (end-start) + " milliseconds.");
 
 	var start = performance.now();
+	drawCirclesColors(circleContextColors);
+	var end = performance.now();
+	console.log("Time to render " + numberOfElements + " colored circle elements: " + (end-start) + " milliseconds.");
+
+	var start = performance.now();
 	drawSquares(squareContext);
 	var end = performance.now();
 	console.log("Time to render " + numberOfElements + " square elements: " + (end-start) + " milliseconds.");
+
+	var start = performance.now();
+	drawSquaresColors(squareContextColors);
+	var end = performance.now();
+	console.log("Time to render " + numberOfElements + " colored square elements: " + (end-start) + " milliseconds.");
 
 	function drawCircles(context) {
 	  var i = -1, n = data.length, d, cx, cy;
@@ -70,6 +98,47 @@
 	    context.arc(cx, cy, 3, 0, 2 * Math.PI, false);
 	    context.stroke();
 	    context.fill();
+	  }
+	}
+
+	function drawCirclesColors(context) {
+		var color = d3.scale.category20b();
+	  var i = -1, n = data.length, d, cx, cy;
+	  while (++i < n) {
+	  	var thisColor = color(Math.floor((Math.random()*20)+1));
+	  	context.fillStyle = thisColor;
+	  	context.beginPath();
+	    d = data[i];
+	    cx = d.x;
+	    cy = d.y;
+	    //context.moveTo(cx, cy);
+	    context.arc(cx, cy, 3, 0, 2 * Math.PI, false);
+	    context.stroke();
+	    context.fill();
+	  }
+	}
+
+	var start = performance.now();
+	var color = d3.scale.category20b();
+  var i = -1, n = data.length, d, cx, cy;
+  while (++i < n) {
+  	var thisColor = color(Math.floor((Math.random()*20)+1));
+  }
+	var end = performance.now();
+	console.log("Time to generate " + numberOfElements + " random colors: " + (end-start) + " milliseconds.");
+
+
+	function drawSquaresColors(context) {
+		var color = d3.scale.category20b();
+		var i = -1, n = data.length, d, cx, cy;
+	  while (++i < n) {
+	  	var thisColor = color(Math.floor((Math.random()*20)+1));
+	  	context.fillStyle = thisColor;
+	    d = data[i];
+	    cx = Math.floor(d.x) + 0.5;
+	    cy = Math.floor(d.y) + 0.5;
+	    context.fillRect(cx, cy, 6, 6);
+	    context.strokeRect(cx, cy, 6, 6);
 	  }
 	}
 
@@ -121,7 +190,7 @@
   var layer = new Kinetic.Layer();
 
   var start = performance.now();
-	drawCirclesKinetic(layer);
+	//drawCirclesKinetic(layer);
 	var end = performance.now();
 	console.log("Time to render " + numberOfElements + " Kinetic circle elements: " + (end-start) + " milliseconds.");
 
@@ -217,13 +286,6 @@
 	  }
 	});
 
-
-
-
-
-
-
-  
   var stage2 = new Kinetic.Stage({
     container: 'container2',
     width: width,
@@ -233,7 +295,7 @@
   var layer2 = new Kinetic.Layer();
 
   var start = performance.now();
-	drawSquaresKinetic(layer2);
+	//drawSquaresKinetic(layer2);
 	var end = performance.now();
 	console.log("Time to render " + numberOfElements + " Kinetic square elements: " + (end-start) + " milliseconds.");
 
@@ -259,12 +321,119 @@
   	stage2.add(layer);
 	}
   
+	var svg = d3.select("#svg").append("svg")
+	    .attr("width", width)
+	    .attr("height", height);
+
+	var start = performance.now();
+	var circle = svg.selectAll("circle")
+	    .data(data)
+	  .enter().append("circle")
+	    .attr("cx", function(d){
+	    	return d.x;
+	    })
+	    .attr("cy", function(d){
+	    	return d.y;
+	    })
+	    .attr("r", 3.5)
+	    .attr("fill", "yellow")
+	    .attr("stroke", "black")
+	    ;
+	var end = performance.now();
+	console.log("Time to render " + numberOfElements + " svg elements: " + (end-start) + " milliseconds.");
+
+	var svgColors = d3.select("#svg").append("svg")
+	    .attr("width", width)
+	    .attr("height", height);
+
+	var start = performance.now();
+	var color = d3.scale.category20b();
+	var circleColors = svgColors.selectAll("circle")
+	    .data(data)
+	  .enter().append("circle")
+	    .attr("cx", function(d){
+	    	return d.x;
+	    })
+	    .attr("cy", function(d){
+	    	return d.y;
+	    })
+	    .attr("r", 3.5)
+	    .attr("fill", function(d){
+	    	return color(Math.floor((Math.random()*20)+1));
+	    })
+	    .attr("stroke", "black")
+	    ;
+	var end = performance.now();
+	console.log("Time to render " + numberOfElements + " colored svg elements: " + (end-start) + " milliseconds.");
 
 
+	var fabricCanvasElement = d3.select("#fabric").append("canvas")
+	  .attr("width", width)
+	  .attr("height", height)
+	  .attr("id", "fabric1")
+	  ;
+	var fabricCanvas = new fabric.Canvas('fabric1', { renderOnAddRemove: false, stateful: false });
+
+	function drawSquaresFabric(canvas) {
+	  var i = -1, n = data.length, d, cx, cy;
+	  while (++i < n) {
+	    d = data[i];
+	    cx = d.x;
+	    cy = d.y;
+	    var rect = new fabric.Rect({
+			  left: cx,
+			  top: cy,
+			  fill: 'pink',
+			  width: 6,
+			  height: 6,
+			  hasBorders: false,
+			  stroke : 'black',
+        strokeWidth : 1
+			});
+		  // add the shape to the layer
+  		canvas.add(rect);
+	  }
+	  canvas.renderAll();
+	}
+
+	var start = performance.now();
+	//drawSquaresFabric(fabricCanvas);
+	var end = performance.now();
+	console.log("Time to render " + numberOfElements + " Fabric square elements: " + (end-start) + " milliseconds.");
 
 
+	var fabricCanvasElement2 = d3.select("#fabric").append("canvas")
+	  .attr("width", width)
+	  .attr("height", height)
+	  .attr("id", "fabric2")
+	  ;
+	var fabricCanvas2 = new fabric.Canvas('fabric2', { renderOnAddRemove: false, stateful: false });
 
+	function drawCirclesFabric(canvas) {
+	  var i = -1, n = data.length, d, cx, cy;
+	  while (++i < n) {
+	    d = data[i];
+	    cx = d.x;
+	    cy = d.y;
+	    var circle = new fabric.Circle({
+			  left: cx,
+			  top: cy,
+			  fill: 'brown',
+			  radius: 4,
+			  hasBorders: false,
+			  stroke : 'black',
+        strokeWidth : 1
+			});
+		  // add the shape to the layer
+  		canvas.add(circle);
+	  }
+	  canvas.renderAll();
+	}
 
+	var start = performance.now();
+	//drawCirclesFabric(fabricCanvas2);
+	var end = performance.now();
+	console.log("Time to render " + numberOfElements + " Fabric circle elements: " + (end-start) + " milliseconds.");
 
 
 
@@ -327,8 +496,12 @@
 	</script>
 </head>
 <body>
-	<div id="vis"></div>
-	<div id="container"></div>
-	<div id="container2"></div>
+	<div id="vis"><h4>Native</h4></div>
+	<div id="kinetic"><h4>Kinetic</h4>
+		<div id="container" class="kinetic"></div><div id="container2" class="kinetic"></div>
+	</div>
+	<div id="fabric"><h4>Fabric</h4>
+	</div>
+	<div id="svg"><h4>SVG D3</h4></div>
 </body>
 </html>
