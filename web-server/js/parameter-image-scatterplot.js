@@ -34,6 +34,7 @@ $.widget("parameter_image.scatterplot",
     filtered_indices : [],
     filtered_selection : [],
     canvas_square_size : 8,
+    canvas_selected_square_size : 16,
     hover_time : 250,
   },
 
@@ -78,9 +79,13 @@ $.widget("parameter_image.scatterplot",
     self.legend_layer = self.svg.append("g").attr("class", "legend");
     self.legend_axis_layer = self.legend_layer.append("g").attr("class", "legend-axis");
     self.datum_layer = self.svg.append("g").attr("class", "datum-layer");
-    self.selected_layer = self.svg.append("g");
-    self.selection_layer = self.svg.append("g");
-    self.image_layer = self.svg.append("g");
+    self.selected_layer = self.svg.append("g").attr("class", "selected-layer");
+    self.canvas_selected = d3.select(self.element.get(0)).append("canvas")
+      .style({'position':'absolute'}).node()
+      ;
+    self.canvas_selected_layer = self.canvas_datum.getContext("2d");
+    self.selection_layer = self.svg.append("g").attr("class", "selection-layer");
+    self.image_layer = self.svg.append("g").attr("class", "image-layer");
 
     self.session_cache = {};
     self.image_cache = {};
@@ -108,7 +113,7 @@ $.widget("parameter_image.scatterplot",
 
     $(self.canvas_datum)
       .mousemove(function(e){
-        // console.log("jquery mouse move canvas");
+        console.log("jquery mouse move canvas");
         // var offset = e.target.getBoundingClientRect();
         // var x = e.pageX - offset.left;
         // var y = e.pageY - offset.top;
@@ -158,7 +163,7 @@ $.widget("parameter_image.scatterplot",
 
     self.element.mousemove(function(e)
     {
-      //console.log("#scatterplot mousemove");
+      console.log("#scatterplot mousemove");
       if(self.start_drag) // Mouse is down ...
       {
         if(self.end_drag) // Already dragging ...
@@ -457,12 +462,18 @@ $.widget("parameter_image.scatterplot",
       var total_height = self.options.height;
       var width = Math.min(total_width, total_height);
       var width_offset = (total_width - width) / 2;
-      d3.select(self.canvas_datum).style({
-        "left" : (width_offset + self.options.border - (self.options.canvas_square_size / 2)) + "px",
-        //"width" : (total_width - width_offset - self.options.border) - (width_offset + self.options.border) + "px"
-        //"width" : (width - (2 * self.options.border)) + "px"
-      });
-      self.canvas_datum.width = (width - (2 * self.options.border)) + self.options.canvas_square_size + 1;
+      d3.select(self.canvas_datum)
+        .style({
+          "left" : (width_offset + self.options.border - (self.options.canvas_square_size / 2)) + "px",
+        })
+        .attr("width", (width - (2 * self.options.border)) + self.options.canvas_square_size + 1)
+        ;
+      d3.select(self.canvas_selected)
+        .style({
+          "left" : (width_offset + self.options.border - (self.options.canvas_selected_square_size / 2)) + "px",
+        })
+        .attr("width", (width - (2 * self.options.border)) + self.options.canvas_selected_square_size + 1)
+        ;
     }
 
     if(self.updates["update_height"])
@@ -474,12 +485,18 @@ $.widget("parameter_image.scatterplot",
       var total_height = self.options.height;
       var height = Math.min(total_width, total_height);
       var height_offset = (total_height - height) / 2;
-      d3.select(self.canvas_datum).style({
-        "top" : (height_offset + self.options.border - (self.options.canvas_square_size / 2)) + "px",
-        //"height" : (total_height - height_offset - self.options.border - 40) - (height_offset + self.options.border) + "px"
-        //"height" : height - (2 * self.options.border) - 40 + "px"
-      });
-      self.canvas_datum.height = height - (2 * self.options.border) - 40 + self.options.canvas_square_size + 1;
+      d3.select(self.canvas_datum)
+        .style({
+          "top" : (height_offset + self.options.border - (self.options.canvas_square_size / 2)) + "px",
+        })
+        .attr("height", height - (2 * self.options.border) - 40 + self.options.canvas_square_size + 1)
+        ;
+      d3.select(self.canvas_selected)
+        .style({
+          "top" : (height_offset + self.options.border - (self.options.canvas_selected_square_size / 2)) + "px",
+        })
+        .attr("height", height - (2 * self.options.border) - 40 + self.options.canvas_selected_square_size + 1)
+        ;
     }
 
     if(self.updates["update_indices"])

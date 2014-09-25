@@ -66,6 +66,21 @@
 	circleOffscreenContext.strokeStyle = "black";
 	circleOffscreenContext.lineWidth = 1;
 
+	var squareOffscreenChart = base.append("canvas")
+	  .attr("width", width)
+	  .attr("height", height);
+	var squareOffscreenContext = squareOffscreenChart.node().getContext("2d");
+	squareOffscreenContext.fillStyle = "orange";
+	squareOffscreenContext.strokeStyle = "black";
+	squareOffscreenContext.lineWidth = 1;
+
+	var squareOffscreenCanvas = d3.select(document.createElement("canvas"))
+	  .attr("width", width)
+	  .attr("height", height);
+	var squareOffscreenCanvasContext = squareOffscreenCanvas.node().getContext("2d");
+	squareOffscreenCanvasContext.fillStyle = "orange";
+	squareOffscreenCanvasContext.strokeStyle = "black";
+	squareOffscreenCanvasContext.lineWidth = 1;
 
 	var start = performance.now();
 	drawCircles(circleContext);
@@ -86,6 +101,12 @@
 	drawSquaresColors(squareContextColors);
 	var end = performance.now();
 	console.log("Time to render " + numberOfElements + " colored square elements: " + (end-start) + " milliseconds.");
+
+	var start = performance.now();
+	drawSquaresColors(squareOffscreenCanvasContext);
+	squareOffscreenContext.drawImage(squareOffscreenCanvas.node(), 0, 0);
+	var end = performance.now();
+	console.log("Time to render " + numberOfElements + " colored square offscreen elements: " + (end-start) + " milliseconds.");
 
 	function drawCircles(context) {
 	  var i = -1, n = data.length, d, cx, cy;
