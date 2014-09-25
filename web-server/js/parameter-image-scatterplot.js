@@ -33,6 +33,8 @@ $.widget("parameter_image.scatterplot",
     hidden_simulations : [],
     filtered_indices : [],
     filtered_selection : [],
+    canvas_square_size : 8,
+    hover_time : 250,
   },
 
   _create: function()
@@ -41,6 +43,8 @@ $.widget("parameter_image.scatterplot",
 
     self.hover_timer = null;
     self.close_hover_timer = null;
+
+    self.hover_timer_canvas = null;
 
     self.opening_image = null;
     self.state = "";
@@ -65,9 +69,9 @@ $.widget("parameter_image.scatterplot",
 
     // Setup the scatterplot ...
     self.canvas_datum = d3.select(self.element.get(0)).append("canvas")
-      .style({'position':'absolute'})
+      .style({'position':'absolute'}).node()
       ;
-    self.canvas_datum_layer = self.canvas_datum.node().getContext("2d");
+    self.canvas_datum_layer = self.canvas_datum.getContext("2d");
     self.svg = d3.select(self.element.get(0)).append("svg");
     self.x_axis_layer = self.svg.append("g").attr("class", "x-axis");
     self.y_axis_layer = self.svg.append("g").attr("class", "y-axis");
@@ -101,6 +105,21 @@ $.widget("parameter_image.scatterplot",
       update_legend_axis:true,
       update_v_label:true,
     });
+
+    $(self.canvas_datum)
+      .mousemove(function(e){
+        // console.log("jquery mouse move canvas");
+        // var offset = e.target.getBoundingClientRect();
+        // var x = e.pageX - offset.left;
+        // var y = e.pageY - offset.top;
+        // console.log('x: ' + x + ", y: " + y);
+        self._schedule_hover_canvas(e);
+      })
+      .mouseout(function(e){
+        console.log("jquery mouse out canvas");
+        self._cancel_hover_canvas();
+      })
+      ;
 
     self.legend_layer
       .call(
@@ -286,11 +305,18 @@ $.widget("parameter_image.scatterplot",
     var selection = self.options.selection;
     var hidden_simulations = self.options.hidden_simulations;
 
-    var filtered_indices;
-    if(indices.length > 1)
-      filtered_indices = Array.apply( [], indices );
-    else
-      filtered_indices = [indices[0]];
+    var filtered_indices = [];
+    // Array.apply method of turning an ArrayBuffer into a normal array is very fast (around 5ms for 250K) but doesn't work in WebKit with arrays longer than about 125K
+    // if(indices.length > 1)
+    //   filtered_indices = Array.apply( [], indices );
+    // else
+    //   filtered_indices = [indices[0]];
+
+    // For loop method is much shower (around 300ms for 250K) but works in WebKit. Might be able to speed things up by using ArrayBuffer.subarray() method to make smallery arrays and then Array.apply those.
+    for(var i = 0; i < indices.length; i++)
+    {
+      filtered_indices.push(indices[i]);
+    }
 
     var filtered_selection = selection.slice(0);
     var length = indices.length;
@@ -298,7 +324,7 @@ $.widget("parameter_image.scatterplot",
     // Remove hidden simulations and NaNs
     for(var i=length-1; i>=0; i--){
       var hidden = $.inArray(indices[i], hidden_simulations) > -1;
-      var NaNValue = Number.isNaN(x[i]) || Number.isNaN(y[i]);
+      var NaNValue = isNaN(x[i]) || isNaN(y[i]);
       if(hidden || NaNValue) {
         filtered_indices.splice(i, 1);
         var selectionIndex = $.inArray(indices[i], filtered_selection);
@@ -431,11 +457,12 @@ $.widget("parameter_image.scatterplot",
       var total_height = self.options.height;
       var width = Math.min(total_width, total_height);
       var width_offset = (total_width - width) / 2;
-      self.canvas_datum.style({
-        "left" : (width_offset + self.options.border) + "px",
+      d3.select(self.canvas_datum).style({
+        "left" : (width_offset + self.options.border - (self.options.canvas_square_size / 2)) + "px",
         //"width" : (total_width - width_offset - self.options.border) - (width_offset + self.options.border) + "px"
-        "width" : (width - (2 * self.options.border)) + "px"
+        //"width" : (width - (2 * self.options.border)) + "px"
       });
+      self.canvas_datum.width = (width - (2 * self.options.border)) + self.options.canvas_square_size + 1;
     }
 
     if(self.updates["update_height"])
@@ -447,11 +474,12 @@ $.widget("parameter_image.scatterplot",
       var total_height = self.options.height;
       var height = Math.min(total_width, total_height);
       var height_offset = (total_height - height) / 2;
-      self.canvas_datum.style({
-        "top" : (height_offset + self.options.border) + "px",
+      d3.select(self.canvas_datum).style({
+        "top" : (height_offset + self.options.border - (self.options.canvas_square_size / 2)) + "px",
         //"height" : (total_height - height_offset - self.options.border - 40) - (height_offset + self.options.border) + "px"
-        "height" : height - (2 * self.options.border) - 40 + "px"
+        //"height" : height - (2 * self.options.border) - 40 + "px"
       });
+      self.canvas_datum.height = height - (2 * self.options.border) - 40 + self.options.canvas_square_size + 1;
     }
 
     if(self.updates["update_indices"])
@@ -571,7 +599,46 @@ $.widget("parameter_image.scatterplot",
       var indices = self.options.indices;
       var filtered_indices = self.options.filtered_indices;
 
-      // Draw points ...
+      // Draw points on canvas ...
+      var time = Date;
+      if(window.performance)
+        time = window.performance;
+      var start = time.now();
+      var canvas = self.canvas_datum_layer;
+      canvas.clearRect(0, 0, self.canvas_datum.width, self.canvas_datum.height);
+      canvas.strokeStyle = "black";
+      canvas.lineWidth = 1;
+      var i = -1, 
+          n = filtered_indices.length, 
+          d, 
+          cx, 
+          cy,
+          color,
+          width = height = self.options.canvas_square_size;
+      while (++i < n) {
+        var index = filtered_indices[i];
+        var value = v[index];
+        if(isNaN(value))
+          color = $("#color-switcher").colorswitcher("get_null_color");
+        else
+          color = self.options.color(value); 
+        canvas.fillStyle = color;
+        // cx = self.x_scale_canvas( x[index] ) + 0.5;
+        // cy = self.y_scale_canvas( y[index] ) + 0.5;
+        cx = Math.round( self.x_scale_canvas( x[index] ) ) + 0.5;
+        cy = Math.round( self.y_scale_canvas( y[index] ) ) + 0.5;
+        canvas.fillRect(cx, cy, width, height);
+        canvas.strokeRect(cx, cy, width, height);
+      }
+      // Test point for checking position and border
+      // canvas.fillStyle = "white";
+      // canvas.fillRect(0 + 0.5, 0 + 0.5, width, height);
+      // canvas.strokeRect(0 + 0.5, 0 + 0.5, width, height);
+      var end = time.now();
+      console.log("Time to render " + filtered_indices.length + " canvas points: " + (end-start) + " milliseconds.");
+
+      // Draw points on svg ...
+      // var start = performance.now();
       // var circle = self.datum_layer.selectAll(".datum")
       //   .data(filtered_indices, function(d, i){ 
       //     return d;
@@ -599,12 +666,14 @@ $.widget("parameter_image.scatterplot",
       //   .attr("cy", function(d, i) { return self.y_scale( y[d] ); })
       //   .attr("fill", function(d, i) { 
       //     var value = v[d];
-      //     if(Number.isNaN(value))
+      //     if(isNaN(value))
       //       return $("#color-switcher").colorswitcher("get_null_color");
       //     else
       //       return self.options.color(value); 
       //   })
       //   ;
+      // var end = performance.now();
+      // console.log("Time to render " + filtered_indices.length + " svg points: " + (end-start) + " milliseconds.");
     }
 
     if(self.updates["render_selection"])
@@ -650,7 +719,7 @@ $.widget("parameter_image.scatterplot",
         })
         .attr("fill", function(d, i) { 
           var value = v[d];
-          if(Number.isNaN(value))
+          if(isNaN(value))
             return $("#color-switcher").colorswitcher("get_null_color");
           else
             return self.options.color(value); 
@@ -1394,6 +1463,78 @@ $.widget("parameter_image.scatterplot",
     self.login.dialog("open");
   },
 
+  _schedule_hover_canvas: function(e)
+  {
+    var self = this;
+
+    self._cancel_hover_canvas();
+
+    // Disable hovering whenever anything else is going on ...
+    if(self.state != "")
+      return;
+
+
+    // Mouse moved, so we need to cancel the existing timer and schedule a new one
+    self.hover_timer_canvas = window.setTimeout( function(){ self._open_hover_canvas(e) }, self.options.hover_time );
+  },
+
+  _open_hover_canvas: function(e)
+  {
+    var self = this;
+
+    // Disable hovering whenever anything else is going on ...
+    if(self.state != "")
+      return;
+
+    // Find the image index for the point under the mouse
+    var image_index = 2;
+    // var offset = e.target.getBoundingClientRect();
+    // var x = e.pageX - offset.left;
+    // var y = e.pageY - offset.top;
+
+    var x = e.originalEvent.layerX;
+    var y = e.originalEvent.layerY;
+    var xvalues = self.options.x;
+    var yvalues = self.options.y;
+
+    console.log('x: ' + x + ", y: " + y);
+
+    var filtered_indices = self.options.filtered_indices,
+        index;
+
+    for(var i = filtered_indices.length-1; i > -1; i-- )
+    {
+      index = filtered_indices[i];
+      x1 = Math.round( self.x_scale_canvas( xvalues[index] ) );
+      y1 = Math.round( self.y_scale_canvas( yvalues[index] ) );
+      x2 = x1 + self.options.canvas_square_size;
+      y2 = y1 + self.options.canvas_square_size;
+
+      if(x >= x1 && x <= x2 && y >= y1 && y <= y2)
+      {
+        // Disable hovering when there is no uri
+        if(self.options.images[index].trim() != "")
+          self._open_hover(index);;
+
+        break;
+      }
+    }
+
+
+    
+  },
+
+  _cancel_hover_canvas: function()
+  {
+    var self = this;
+
+    if(self.hover_timer_canvas)
+    {
+      window.clearTimeout(self.hover_timer_canvas);
+      self.hover_timer_canvas = null;
+    }
+  },
+
   _schedule_hover: function(image_index)
   {
     var self = this;
@@ -1415,7 +1556,7 @@ $.widget("parameter_image.scatterplot",
     self._cancel_hover();
 
     // Start the timer for the new hover ...
-    self.hover_timer = window.setTimeout(function() { self._open_hover(image_index); }, 250);
+    self.hover_timer = window.setTimeout(function() { self._open_hover(image_index); }, self.options.hover_time);
   },
 
   _cancel_hover: function()
