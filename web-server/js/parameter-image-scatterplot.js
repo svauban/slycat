@@ -88,16 +88,16 @@ $.widget("parameter_image.scatterplot",
     self.updates = {};
     self.update_timer = null;
     self._schedule_update({
-      update_indices:true, 
-      update_width:true, 
-      update_height:true, 
-      update_x:true, 
-      update_y:true, 
-      update_x_label:true, 
-      update_y_label:true, 
-      update_color_domain:true, 
-      render_data:true, 
-      render_selection:true, 
+      update_indices:true,
+      update_width:true,
+      update_height:true,
+      update_x:true,
+      update_y:true,
+      update_x_label:true,
+      update_y_label:true,
+      update_color_domain:true,
+      render_data:true,
+      render_selection:true,
       open_images:true,
       render_legend:true,
       update_legend_colors:true,
@@ -200,7 +200,7 @@ $.widget("parameter_image.scatterplot",
     {
       if(self.state == "resizing" || self.state == "moving")
         return;
-      
+
       //console.log("#scatterplot mouseup");
       if(!e.ctrlKey)
       {
@@ -231,7 +231,7 @@ $.widget("parameter_image.scatterplot",
                 self.options.selection.push(self.options.indices[i]);
             }
           }
-        } 
+        }
       }
       else // Pick selection ...
       {
@@ -390,7 +390,7 @@ $.widget("parameter_image.scatterplot",
     }
 
     else if(key == "selection")
-    { 
+    {
       self._filterIndices();
       self._schedule_update({render_selection:true});
     }
@@ -568,7 +568,7 @@ $.widget("parameter_image.scatterplot",
       var y_axis_width = self.y_axis_layer.node().getBBox().width;
       var x = -(y_axis_width+15);
       var y = self.svg.attr("height") / 2;
-      
+
       self.y_axis_layer.append("text")
         .attr("class", "label")
         .attr("x", x)
@@ -700,29 +700,29 @@ $.widget("parameter_image.scatterplot",
         .attr("r", 8)
         .attr("stroke", "black")
         .attr("linewidth", 1)
-        .attr("data-index", function(d, i) { 
-          return d; 
+        .attr("data-index", function(d, i) {
+          return d;
         })
-        .on("mouseover", function(d, i) { 
+        .on("mouseover", function(d, i) {
           self._schedule_hover(d);
         })
-        .on("mouseout", function(d, i) { 
-          self._cancel_hover(); 
+        .on("mouseout", function(d, i) {
+          self._cancel_hover();
         })
         ;
       circle
-        .attr("cx", function(d, i) { 
-          return x_scale( x[d] ); 
+        .attr("cx", function(d, i) {
+          return x_scale( x[d] );
         })
-        .attr("cy", function(d, i) { 
-          return y_scale( y[d] ); 
+        .attr("cy", function(d, i) {
+          return y_scale( y[d] );
         })
-        .attr("fill", function(d, i) { 
+        .attr("fill", function(d, i) {
           var value = v[d];
           if(isNaN(value))
             return $("#color-switcher").colorswitcher("get_null_color");
           else
-            return self.options.color(value); 
+            return self.options.color(value);
         })
         ;
     }
@@ -857,7 +857,7 @@ $.widget("parameter_image.scatterplot",
       var rectHeight = parseInt(self.legend_layer.select("rect.color").attr("height"));
       var x = -15;
       var y = rectHeight/2;
-      
+
       self.legend_layer.append("text")
         .attr("class", "label")
         .attr("x", x)
@@ -919,7 +919,7 @@ $.widget("parameter_image.scatterplot",
     // }
 
     // If image is hover and we are no longer loading this image, we're done.
-    if( image.image_class == "hover-image" && 
+    if( image.image_class == "hover-image" &&
         self.opening_image != image.index
       )
     {
@@ -955,7 +955,7 @@ $.widget("parameter_image.scatterplot",
         image.y = parseInt((target_y / height) * (height - image.height));
       }
 
-      // Tag associated point with class 
+      // Tag associated point with class
       self.datum_layer.selectAll("circle[data-index='" + image.index + "']")
         .classed("openHover", true)
         ;
@@ -1078,7 +1078,7 @@ $.widget("parameter_image.scatterplot",
       // Schedule timeout for hover
       self.close_hover_timer = window.setTimeout(function() {self._hover_timeout(image.index, 0);}, 1000);
     }
-    
+
     // If the image is already in the cache, display it.
     if(image.uri in self.image_cache)
     {
@@ -1135,12 +1135,14 @@ $.widget("parameter_image.scatterplot",
               //console.log("resize drag");
               // Make sure mouse is inside svg element
               if( 0 <= d3.event.y && d3.event.y <= self.options.height && 0 <= d3.event.x && d3.event.x <= self.options.width ){
-                var theImage = d3.select(this.parentNode).select("image.image");
+                var frame = d3.select(this.parentNode);
+                var theImage = frame.select("image.image");
                 var width = Number(theImage.attr("width"));
                 var height = Number(theImage.attr("height"));
-                var theRectangle = d3.select(this.parentNode).select("rect.outline");
+                var theRectangle = frame.select("rect.outline");
                 var theHandle = d3.select(this);
-                var theLine = d3.select(this.parentNode).select("line.leader");
+                var theLine = frame.select("line.leader");
+                var thePin = frame.select('.pin-button');
                 var ratio = Number(theImage.attr("data-ratio"));
                 var newWidth, newHeight;
                 var x = d3.event.x;
@@ -1161,9 +1163,10 @@ $.widget("parameter_image.scatterplot",
                 theRectangle.attr("width", newWidth+1);
                 theRectangle.attr("height", newHeight+1);
                 theHandle.attr('transform', "translate(" + (newWidth-9) + ", " + (newHeight-9) + ")");
+                thePin.attr('transform',  'translate(' + (newWidth-20) + ',0)');
                 theLine.attr("x1", (newWidth / 2));
                 theLine.attr("y1", (newHeight / 2));
-                  
+
               }
             })
             .on("dragstart", function() {
@@ -1223,9 +1226,7 @@ $.widget("parameter_image.scatterplot",
 
       // Create a close button ...
       var close_button = frame.append("g")
-        .attr("class", "close-button")
-        ;
-
+        .attr("class", "close-button");
       close_button.append("rect")
         .attr("x", 5)
         .attr("y", 5)
@@ -1261,8 +1262,8 @@ $.widget("parameter_image.scatterplot",
 
       // Create a pin button ...
       var pin_button = frame.append("g")
-        .attr("class", "pin-button")
-        ;
+        .attr('class', 'pin-button')
+        .attr('transform', "translate(" + (image.width-20) + ",0)");
 
       pin_button.append("image")
         .attr("class", "pin-icon")
@@ -1300,6 +1301,7 @@ $.widget("parameter_image.scatterplot",
           var theRectangle = frame.select("rect.outline");
           var theHandle = frame.select("g.resize-handle");
           var theLine = frame.select("line.leader");
+          var thePin = frame.select('.pin-button');
           frame.classed("hover-image", false)
             .classed("open-image", true)
             ;
@@ -1334,6 +1336,7 @@ $.widget("parameter_image.scatterplot",
           theRectangle.attr("width", imageWidth+1);
           theRectangle.attr("height", imageHeight+1);
           theHandle.attr('transform', "translate(" + (imageWidth-9) + ", " + (imageHeight-9) + ")");
+          thePin.attr('transform', 'translate(' + (imageWidth-20) + ',0)');
 
           // Adjust line
           theLine
@@ -1656,4 +1659,3 @@ $.widget("parameter_image.scatterplot",
       ;
   },
 });
-

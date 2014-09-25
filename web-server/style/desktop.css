@@ -725,7 +725,7 @@ a#title-link h1:hover
 
 #user-actions li
 {
-  display: inline;
+  /* display: inline; */
   margin-left: 20px;
 }
 
@@ -804,6 +804,13 @@ button:active, button.active
 {
   background-color: #888 !important;
   color: #eee;
+}
+button:disabled,
+button:disabled:hover,
+button:disabled:active
+{
+  color: #808080;
+  background-color: #DDDDDD !important;
 }
 
 select
