@@ -249,28 +249,6 @@ $.widget("parameter_image.scatterplot",
             {
               // Selecting a new point.
               self.options.selection.push(self.options.indices[i]);
-
-              // // If the URI for this point isn't already open, open it.
-              // var uri = self.options.images[self.options.indices[i]];
-              // if($(".open-image[data-uri='" + uri + "']").size() == 0)
-              // {
-              //   self._close_hover();
-
-              //   var width = self.svg.attr("width");
-              //   var height = self.svg.attr("height");
-              //   var open_width = Math.min(width, height) / 3;
-              //   var open_height = Math.min(width, height) / 3;
-
-              //   self._open_images([{
-              //     index : self.options.indices[i],
-              //     uri : self.options.images[self.options.indices[i]],
-              //     image_class : "open-image",
-              //     target_x : self.x_scale(self.options.x[i]),
-              //     target_y : self.y_scale(self.options.y[i]),
-              //     width: open_width,
-              //     height : open_height,
-              //     }]);
-              // }
             }
             else
             {
