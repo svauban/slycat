@@ -71,10 +71,6 @@ $.widget("parameter_image.scatterplot",
     });
 
     // Setup the scatterplot ...
-    self.canvas_datum = d3.select(self.element.get(0)).append("canvas")
-      .style({'position':'absolute'}).node()
-      ;
-    self.canvas_datum_layer = self.canvas_datum.getContext("2d");
     self.svg = d3.select(self.element.get(0)).append("svg");
     self.x_axis_layer = self.svg.append("g").attr("class", "x-axis");
     self.y_axis_layer = self.svg.append("g").attr("class", "y-axis");
@@ -82,6 +78,10 @@ $.widget("parameter_image.scatterplot",
     self.legend_axis_layer = self.legend_layer.append("g").attr("class", "legend-axis");
     self.datum_layer = self.svg.append("g").attr("class", "datum-layer");
     self.selected_layer = self.svg.append("g").attr("class", "selected-layer");
+    self.canvas_datum = d3.select(self.element.get(0)).append("canvas")
+      .style({'position':'absolute'}).node()
+      ;
+    self.canvas_datum_layer = self.canvas_datum.getContext("2d");
     self.canvas_selected = d3.select(self.element.get(0)).append("canvas")
       .style({'position':'absolute'}).node()
       ;
@@ -112,21 +112,6 @@ $.widget("parameter_image.scatterplot",
       update_legend_axis:true,
       update_v_label:true,
     });
-
-    $(self.canvas_datum)
-      .mousemove(function(e){
-        console.log("jquery mouse move canvas");
-        // var offset = e.target.getBoundingClientRect();
-        // var x = e.pageX - offset.left;
-        // var y = e.pageY - offset.top;
-        // console.log('x: ' + x + ", y: " + y);
-        self._schedule_hover_canvas(e);
-      })
-      .mouseout(function(e){
-        console.log("jquery mouse out canvas");
-        self._cancel_hover_canvas();
-      })
-      ;
 
     self.legend_layer
       .call(
@@ -165,8 +150,11 @@ $.widget("parameter_image.scatterplot",
 
     self.element.mousemove(function(e)
     {
-      console.log("#scatterplot mousemove");
-      if(self.start_drag) // Mouse is down ...
+      if(self.start_drag === null)
+      {
+        self._schedule_hover_canvas(e);
+      }
+      else if(self.start_drag) // Mouse is down ...
       {
         if(self.end_drag) // Already dragging ...
         {
@@ -201,6 +189,10 @@ $.widget("parameter_image.scatterplot",
           }
         }
       }
+    });
+
+    self.element.mouseout(function(e){
+      self._cancel_hover_canvas();
     });
 
     self.element.mouseup(function(e)
@@ -1518,15 +1510,12 @@ $.widget("parameter_image.scatterplot",
   _schedule_hover_canvas: function(e)
   {
     var self = this;
-
     self._cancel_hover_canvas();
 
     // Disable hovering whenever anything else is going on ...
     if(self.state != "")
       return;
 
-
-    // Mouse moved, so we need to cancel the existing timer and schedule a new one
     self.hover_timer_canvas = window.setTimeout( function(){ self._open_hover_canvas(e) }, self.options.hover_time );
   },
 
@@ -1538,42 +1527,46 @@ $.widget("parameter_image.scatterplot",
     if(self.state != "")
       return;
 
-    // Find the image index for the point under the mouse
-    var image_index = 2;
-    // var offset = e.target.getBoundingClientRect();
-    // var x = e.pageX - offset.left;
-    // var y = e.pageY - offset.top;
-
-    var x = e.originalEvent.layerX;
-    var y = e.originalEvent.layerY;
-    var xvalues = self.options.x;
-    var yvalues = self.options.y;
-
-    console.log('x: ' + x + ", y: " + y);
-
-    var filtered_indices = self.options.filtered_indices,
+    var x = e.originalEvent.layerX,
+        y = e.originalEvent.layerY,
+        filtered_indices = self.options.filtered_indices,
+        filtered_selection = self.options.filtered_selection,
+        square_size = self.options.canvas_square_size,
+        shift = (square_size / 2),
+        selected_square_size = self.options.canvas_selected_square_size,
+        selected_shift = (selected_square_size / 2),
         index;
 
-    for(var i = filtered_indices.length-1; i > -1; i-- )
+    var selected_match = self._open_first_match(x, y, filtered_selection, selected_shift, selected_square_size);
+    if(!selected_match)
+      self._open_first_match(x, y, filtered_indices, shift, square_size);
+  },
+
+  _open_first_match: function(x, y, indices, shift, size)
+  {
+    var self = this,
+        xvalues = self.options.x,
+        yvalues = self.options.y;
+    for(var i = indices.length-1; i > -1; i-- )
     {
-      index = filtered_indices[i];
-      x1 = Math.round( self.x_scale_canvas( xvalues[index] ) );
-      y1 = Math.round( self.y_scale_canvas( yvalues[index] ) );
-      x2 = x1 + self.options.canvas_square_size;
-      y2 = y1 + self.options.canvas_square_size;
+      index = indices[i];
+      x1 = Math.round( self.x_scale( xvalues[index] ) ) - shift;
+      y1 = Math.round( self.y_scale( yvalues[index] ) ) - shift;
+      x2 = x1 + size;
+      y2 = y1 + size;
 
       if(x >= x1 && x <= x2 && y >= y1 && y <= y2)
       {
         // Disable hovering when there is no uri
         if(self.options.images[index].trim() != "")
-          self._open_hover(index);;
+        {
+          self._open_hover(index);
+        }
 
-        break;
+        return true;
       }
     }
-
-
-    
+    return false;
   },
 
   _cancel_hover_canvas: function()
