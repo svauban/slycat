@@ -239,7 +239,7 @@ $.widget("parameter_image.scatterplot",
         var x2 = self.x_scale.invert(e.originalEvent.layerX + self.options.pick_distance);
         var y2 = self.y_scale.invert(e.originalEvent.layerY - self.options.pick_distance);
 
-        for(var i = 0; i != count; ++i)
+        for(var i = count - 1; i > -1; i--)
         {
           if(x1 <= x[i] && x[i] <= x2 && y1 <= y[i] && y[i] <= y2)
           {
