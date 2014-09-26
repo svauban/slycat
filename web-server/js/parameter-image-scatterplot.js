@@ -34,7 +34,9 @@ $.widget("parameter_image.scatterplot",
     filtered_indices : [],
     filtered_selection : [],
     canvas_square_size : 8,
+    canvas_square_border_size : 1,
     canvas_selected_square_size : 16,
+    canvas_selected_square_border_size : 2,
     hover_time : 250,
   },
 
@@ -83,7 +85,7 @@ $.widget("parameter_image.scatterplot",
     self.canvas_selected = d3.select(self.element.get(0)).append("canvas")
       .style({'position':'absolute'}).node()
       ;
-    self.canvas_selected_layer = self.canvas_datum.getContext("2d");
+    self.canvas_selected_layer = self.canvas_selected.getContext("2d");
     self.selection_layer = self.svg.append("g").attr("class", "selection-layer");
     self.image_layer = self.svg.append("g").attr("class", "image-layer");
 
@@ -466,13 +468,13 @@ $.widget("parameter_image.scatterplot",
         .style({
           "left" : (width_offset + self.options.border - (self.options.canvas_square_size / 2)) + "px",
         })
-        .attr("width", (width - (2 * self.options.border)) + self.options.canvas_square_size + 1)
+        .attr("width", (width - (2 * self.options.border)) + self.options.canvas_square_size)
         ;
       d3.select(self.canvas_selected)
         .style({
           "left" : (width_offset + self.options.border - (self.options.canvas_selected_square_size / 2)) + "px",
         })
-        .attr("width", (width - (2 * self.options.border)) + self.options.canvas_selected_square_size + 1)
+        .attr("width", (width - (2 * self.options.border)) + self.options.canvas_selected_square_size)
         ;
     }
 
@@ -489,13 +491,13 @@ $.widget("parameter_image.scatterplot",
         .style({
           "top" : (height_offset + self.options.border - (self.options.canvas_square_size / 2)) + "px",
         })
-        .attr("height", height - (2 * self.options.border) - 40 + self.options.canvas_square_size + 1)
+        .attr("height", height - (2 * self.options.border) - 40 + self.options.canvas_square_size)
         ;
       d3.select(self.canvas_selected)
         .style({
           "top" : (height_offset + self.options.border - (self.options.canvas_selected_square_size / 2)) + "px",
         })
-        .attr("height", height - (2 * self.options.border) - 40 + self.options.canvas_selected_square_size + 1)
+        .attr("height", height - (2 * self.options.border) - 40 + self.options.canvas_selected_square_size)
         ;
     }
 
@@ -610,28 +612,32 @@ $.widget("parameter_image.scatterplot",
 
     if(self.updates["render_data"])
     {
-      var x = self.options.x;
-      var y = self.options.y;
-      var v = self.options.v;
-      var indices = self.options.indices;
-      var filtered_indices = self.options.filtered_indices;
+      var x = self.options.x,
+          y = self.options.y,
+          v = self.options.v,
+          filtered_indices = self.options.filtered_indices,
+          canvas = self.canvas_datum_layer,
+          i = -1, 
+          n = filtered_indices.length, 
+          cx, 
+          cy,
+          color,
+          square_size = self.options.canvas_square_size,
+          border_width = self.options.canvas_square_border_size,
+          half_border_width = border_width / 2,
+          fillWidth = fillHeight = square_size - (2 * border_width),
+          strokeWidth = strokeHeight = square_size - border_width;
 
       // Draw points on canvas ...
       var time = Date;
       if(window.performance)
         time = window.performance;
       var start = time.now();
-      var canvas = self.canvas_datum_layer;
+      
       canvas.clearRect(0, 0, self.canvas_datum.width, self.canvas_datum.height);
       canvas.strokeStyle = "black";
-      canvas.lineWidth = 1;
-      var i = -1, 
-          n = filtered_indices.length, 
-          d, 
-          cx, 
-          cy,
-          color,
-          width = height = self.options.canvas_square_size;
+      canvas.lineWidth = border_width;
+
       while (++i < n) {
         var index = filtered_indices[i];
         var value = v[index];
@@ -640,12 +646,10 @@ $.widget("parameter_image.scatterplot",
         else
           color = self.options.color(value); 
         canvas.fillStyle = color;
-        // cx = self.x_scale_canvas( x[index] ) + 0.5;
-        // cy = self.y_scale_canvas( y[index] ) + 0.5;
-        cx = Math.round( self.x_scale_canvas( x[index] ) ) + 0.5;
-        cy = Math.round( self.y_scale_canvas( y[index] ) ) + 0.5;
-        canvas.fillRect(cx, cy, width, height);
-        canvas.strokeRect(cx, cy, width, height);
+        cx = Math.round( self.x_scale_canvas( x[index] ) );
+        cy = Math.round( self.y_scale_canvas( y[index] ) );
+        canvas.fillRect(cx + border_width, cy + border_width, fillWidth, fillHeight);
+        canvas.strokeRect(cx + half_border_width, cy + half_border_width, strokeWidth, strokeHeight);
       }
       // Test point for checking position and border
       // canvas.fillStyle = "white";
@@ -695,53 +699,81 @@ $.widget("parameter_image.scatterplot",
 
     if(self.updates["render_selection"])
     {
-      var x = self.options.x;
-      var y = self.options.y;
-      var v = self.options.v;
-      var indices = self.options.indices;
-      var filtered_selection = self.options.filtered_selection;
+      var x = self.options.x,
+          y = self.options.y,
+          v = self.options.v,
+          filtered_selection = self.options.filtered_selection,
+          canvas = self.canvas_selected_layer,
+          i = -1,
+          n = filtered_selection.length,
+          cx, 
+          cy,
+          color,
+          square_size = self.options.canvas_selected_square_size,
+          border_width = self.options.canvas_selected_square_border_size,
+          half_border_width = border_width / 2,
+          fillWidth = fillHeight = square_size - (2 * border_width),
+          strokeWidth = strokeHeight = square_size - border_width;
+      
+      canvas.clearRect(0, 0, self.canvas_selected.width, self.canvas_selected.height);
+      canvas.strokeStyle = "black";
+      canvas.lineWidth = border_width;
 
-      var x_scale = self.x_scale;
-      var y_scale = self.y_scale;
+      while (++i < n) {
+        var index = filtered_selection[i];
+        var value = v[index];
+        if(isNaN(value))
+          color = $("#color-switcher").colorswitcher("get_null_color");
+        else
+          color = self.options.color(value); 
+        canvas.fillStyle = color;
+        cx = Math.round( self.x_scale_canvas( x[index] ) );
+        cy = Math.round( self.y_scale_canvas( y[index] ) );
+        canvas.fillRect(cx + border_width, cy + border_width, fillWidth, fillHeight);
+        canvas.strokeRect(cx + half_border_width, cy + half_border_width, strokeWidth, strokeHeight);
+      }
 
-      self.selected_layer.selectAll(".selection").remove();
+      // var x_scale = self.x_scale;
+      // var y_scale = self.y_scale;
 
-      var circle = self.selected_layer.selectAll(".selection")
-        .data(filtered_selection, function(d, i){
-          return d;
-        })
-        ;
-      circle.enter()
-        .append("circle")
-        .attr("class", "selection")
-        .attr("r", 8)
-        .attr("stroke", "black")
-        .attr("linewidth", 1)
-        .attr("data-index", function(d, i) {
-          return d;
-        })
-        .on("mouseover", function(d, i) {
-          self._schedule_hover(d);
-        })
-        .on("mouseout", function(d, i) {
-          self._cancel_hover();
-        })
-        ;
-      circle
-        .attr("cx", function(d, i) {
-          return x_scale( x[d] );
-        })
-        .attr("cy", function(d, i) {
-          return y_scale( y[d] );
-        })
-        .attr("fill", function(d, i) {
-          var value = v[d];
-          if(isNaN(value))
-            return $("#color-switcher").colorswitcher("get_null_color");
-          else
-            return self.options.color(value);
-        })
-        ;
+      // self.selected_layer.selectAll(".selection").remove();
+
+      // var circle = self.selected_layer.selectAll(".selection")
+      //   .data(filtered_selection, function(d, i){
+      //     return d;
+      //   })
+      //   ;
+      // circle.enter()
+      //   .append("circle")
+      //   .attr("class", "selection")
+      //   .attr("r", 8)
+      //   .attr("stroke", "black")
+      //   .attr("linewidth", 1)
+      //   .attr("data-index", function(d, i) {
+      //     return d;
+      //   })
+      //   .on("mouseover", function(d, i) {
+      //     self._schedule_hover(d);
+      //   })
+      //   .on("mouseout", function(d, i) {
+      //     self._cancel_hover();
+      //   })
+      //   ;
+      // circle
+      //   .attr("cx", function(d, i) {
+      //     return x_scale( x[d] );
+      //   })
+      //   .attr("cy", function(d, i) {
+      //     return y_scale( y[d] );
+      //   })
+      //   .attr("fill", function(d, i) {
+      //     var value = v[d];
+      //     if(isNaN(value))
+      //       return $("#color-switcher").colorswitcher("get_null_color");
+      //     else
+      //       return self.options.color(value);
+      //   })
+      //   ;
     }
 
     // Used to open an initial list of images at startup only
