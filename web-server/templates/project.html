@@ -12,8 +12,12 @@ rights in this software.
     <title>{{name}} - Slycat Project</title>
     <script type="text/javascript" src="{{server-root}}js/file-browser.js"></script>
     <script type="text/javascript" src="{{server-root}}js/jquery.layout-latest.min.js"></script>
-    <link rel="stylesheet" href="{{server-root}}style/file-browser.css" type="text/css">
+    <script type="text/javascript" src="{{server-root}}js/jquery.regex-selector.js"></script>
+    <script type="text/javascript" src="{{server-root}}js/jquery.combobox.js"></script>
     <!-- <link rel="stylesheet" href="{{server-root}}style/layout-default-latest.css" type="text/css"/> -->
+    <link rel="stylesheet" href="{{server-root}}css/file-browser.css" type="text/css">
+    <link rel="stylesheet" href="{{server-root}}css/combobox.css" type="text/css">
+    <link id="slycat-server-root" href="{{server-root}}">
   </head>
 
   <body>
@@ -97,9 +101,9 @@ rights in this software.
           <button id="local-cca-button" title="Compute a CCA model using a local file.">Local CCA</button>
           <button id="remote-cca-button" title="Compute a CCA model using a remote file.">Remote CCA</button>
           <button id="remote-pi-button" title="Load a parameter image model from a remote CSV file.">Remote PI</button>
+          <button id="remote-ti-button" title="Load a tracer image model from a remote CSV file.">Remote TI</button>
           {{/can-write}}
         </div>
-
         <!-- Local CCA user interface -->
         <div id="local-cca-form" class="dialog" title="Local File CCA Model">
           <div id="local-cca-basics">
@@ -194,23 +198,27 @@ rights in this software.
           </div>
 
           <div id="remote-cca-connection">
-            <p>Select the remote host where your data is located:
-              <select id="remote-cca-hostname">
-                {{#remote-hosts}}
-                <option value="{{name}}">{{name}}</option>
-                {{/remote-hosts}}
-              </select>
-            </p>
+            <div class="ui-widget">
+              <label for="remote-cca-hostname">Type the remote host where your data is located:</label>
+              <input type="text" id="remote-cca-hostname">
+              <div id="remote-hosts-cca-message"></div>
+            </div>
             <p><label for="remote-cca-username">Username</label><input id="remote-cca-username" name="remote-cca-username" type="input"/></p>
             <p><label for="remote-cca-password">Password</label><input id="remote-cca-password" name="remote-cca-password" type="password"/></p>
             <button id="remote-cca-connection-next">Next</button>
           </div>
 
           <div id="remote-cca-browse">
-            <p>Highlight the file to be analyzed:</p>
-            <p><input id="remote-cca-hide-dotfiles" type="checkbox">Hide Dotfiles</input></p>
+            <div class="top-shelf">
+              <div class="pull-left">
+                <p><input id="remote-cca-hide-dotfiles" type="checkbox">Hide Dotfiles</input></p>
+              </div>
+              <div id="cca-file-path-entry" class="file-path-entry">
+                <p><input id="remote-cca-path-entry" class="path-entry-input" type="text" placeholder="File Path Entry"></input></p>
+              </div>
+              <button id="remote-cca-browse-next" class="remote-browser-next-button">Next</button>
+            </div>
             <div id="remote-cca-browser"></div>
-            <button id="remote-cca-browse-next">Next</button>
           </div>
 
           <div id="remote-cca-parameters">
@@ -260,23 +268,27 @@ rights in this software.
           </div>
 
           <div id="remote-pi-connection">
-            <p>Select the remote host where your data is located:
-              <select id="remote-pi-hostname">
-                {{#remote-hosts}}
-                <option value="{{name}}">{{name}}</option>
-                {{/remote-hosts}}
-              </select>
-            </p>
+            <div class="ui-widget">
+              <label for="remote-pi-hostname">Type the remote host where your data is located:</label>
+              <input type="text" id="remote-pi-hostname">
+              <div id="remote-hosts-pi-message"></div>
+            </div>
             <p><label for="remote-pi-username">Username</label><input id="remote-pi-username" name="remote-pi-username" type="input"/></p>
             <p><label for="remote-pi-password">Password</label><input id="remote-pi-password" name="remote-pi-password" type="password"/></p>
             <button id="remote-pi-connection-next">Next</button>
           </div>
 
           <div id="remote-pi-browse">
-            <p>Highlight the file to be analyzed:</p>
-            <p><input id="remote-pi-hide-dotfiles" type="checkbox">Hide Dotfiles</input></p>
+            <div class="top-shelf">
+              <div class="pull-left">
+                <p><input id="remote-pi-hide-dotfiles" type="checkbox">Hide Dotfiles</input></p>
+              </div>
+              <div id="pi-file-path-entry" class="file-path-entry">
+                <p><input id="remote-pi-path-entry" class="path-entry-input" type="text" placeholder="File Path Entry"></input></p>
+              </div>
+              <button id="remote-pi-browse-next" class="remote-browser-next-button">Next</button>
+            </div>
             <div id="remote-pi-browser"></div>
-            <button id="remote-pi-browse-next">Next</button>
           </div>
 
           <div id="remote-pi-parameters">
@@ -354,7 +366,6 @@ rights in this software.
             });
           }
         }
-
         $("#add-administrator").button().click(add_user($("#new-administrator"), modified_security.administrators, update_administrator_acl));
         $("#add-writer").button().click(add_user($("#new-writer"), modified_security.writers, update_writer_acl));
         $("#add-reader").button().click(add_user($("#new-reader"), modified_security.readers, update_reader_acl));
@@ -933,13 +944,18 @@ rights in this software.
             }
           });
         });
+        $("#remote-cca-password").keypress(function(event){
+            if (event.keyCode == 13){
+              $("#remote-cca-connection-next").trigger("click");
+            }
+        });
         $("#remote-cca-connection-next").button().click(function()
         {
           $.ajax(
           {
             async : false,
             type : "POST",
-            url : "{{server-root}}remote",
+            url : "{{server-root}}remotes",
             contentType : "application/json",
             data: $.toJSON(
             {
@@ -1144,6 +1160,35 @@ rights in this software.
           $("#remote-cca-form").dialog("open");
         });
 
+        /*This each loop goes over each model type abbreviation and sets the "#remote-model_name-hostname" textfield to a combobox.
+          It also watches the text field for value changes and handles displaying messages and removing them when they need to be
+          shown or hidden. If there is a new model type that you would like a remote connection combobox in, simply add a text field
+          with the id: "#remote-model_name-hostname" where model_name is the actual abbreviation (Ex: cca, pi). This text field will
+          be the combobox where they can type their own hostname, or select from the list. Then make sure there is a div of 
+          id: "#remote-hosts-model_name-message" where model_name is the actual abbreviation. This div will be where the sub-optimal 
+          warning message is added or removed.
+        */
+        $.each(["cca", "pi"], function(index, model_type)
+        {
+          $("#remote-" + model_type + "-hostname").combobox({{remote-hosts-arr}});
+          $("#remote-"+ model_type + "-hostname").on("change", function()
+          {
+            var remote_host_array = $.parseJSON("{{{remote-hosts}}}");
+            $("#remote-hosts-" + model_type + "-message").html("");
+            $.each(remote_host_array, function(index, remote_host_object)
+            {
+              if(remote_host_object.name == $("#remote-" + model_type + "-hostname").val())
+              {
+                if(remote_host_object.hasOwnProperty("message"))
+                {
+                  $("#remote-hosts-" + model_type + "-message").html("<p>"+ remote_host_object.message +"</p>");
+                }
+                return false;
+              }
+            });
+          });
+        });
+
         function process_model_status(results) {
           if(results.finished === null) {
             $("#local-cca-parameters").css("display", "none");
@@ -1212,6 +1257,8 @@ rights in this software.
 
             // Clear password field
             $("#remote-pi-password").val("");
+            // Clear file path field
+            $(".path-entry-input").val("");
           }
         });
         $("#remote-pi-basics-next").button().click(function()
@@ -1223,7 +1270,7 @@ rights in this software.
             contentType : "application/json",
             data: $.toJSON(
             {
-              "model-type" : "parameter-image",
+              "model-type" : window.remote_pi_model_type || "parameter-image",
               "name" : $("#remote-pi-name").val(),
               "marking" : $("#remote-pi-marking").val(),
               "description" : $("#remote-pi-description").val()
@@ -1241,13 +1288,18 @@ rights in this software.
             }
           });
         });
+        $("#remote-pi-password").keypress(function(event){
+            if (event.keyCode == 13){
+              $("#remote-pi-connection-next").trigger("click");
+            }
+        });
         $("#remote-pi-connection-next").button().click(function()
         {
           $.ajax(
           {
             async : false,
             type : "POST",
-            url : "{{server-root}}remote",
+            url : "{{server-root}}remotes",
             contentType : "application/json",
             data: $.toJSON(
             {
@@ -1331,30 +1383,30 @@ rights in this software.
                       ;
                     $("<td>").text(column).appendTo(row);
 
+                    var controls = [];
+
+                    var input = $("<input type='checkbox' name='inputs' class='remote-pi-input-variable' title='Treat variable as an input for analysis.'>").val(index).appendTo($("<td>").appendTo(row));
+                    var output = $("<input type='checkbox' name='outputs' class='remote-pi-output-variable' title='Treat variable as an output for analysis.'>").val(index).appendTo($("<td>").appendTo(row));
+                    controls.push(input, output);
+                    input.prop("checked", true);
+
                     if(table["column-types"][index] != "string")
                     {
-                      var input = $("<input type='checkbox' name='inputs' class='remote-pi-input-variable' title='Treat variable as an input for analysis.'>").val(index).appendTo($("<td>").appendTo(row));
-                      var output = $("<input type='checkbox' name='outputs' class='remote-pi-output-variable' title='Treat variable as an output for analysis.'>").val(index).appendTo($("<td>").appendTo(row));
                       var rating = $("<input type='checkbox' name='outputs' class='remote-pi-rating-variable' title='Treat variable as rating for analysis.'>").val(index).appendTo($("<td>").appendTo(row));
-                      var category = $("<input type='checkbox' name='outputs' class='remote-pi-category-variable' title='Treat variable as a category for analysis.'>").val(index).appendTo($("<td>").appendTo(row));
-
-                      input.attr("checked", "checked");
-                      input.click(deselect_companions([output, rating, category]));
-                      output.click(deselect_companions([input, rating, category]));
-                      rating.click(deselect_companions([input, output, category]));
-                      category.click(deselect_companions([input, output, rating]));
+                      controls.push(rating);
                     }
                     else
                     {
                       $("<td>").appendTo(row);
-                      $("<td>").appendTo(row);
-                      $("<td>").appendTo(row);
-                      $("<td>").appendTo(row);
                     }
+
+                    var category = $("<input type='checkbox' name='outputs' class='remote-pi-category-variable' title='Treat variable as a category for analysis.'>").val(index).appendTo($("<td>").appendTo(row));
+                    controls.push(category);
 
                     if(table["column-types"][index] == "string")
                     {
                       var image = $("<input type='checkbox' name='images' class='remote-pi-image-variable' title='Treat variable as an image for analysis.'>").val(index).appendTo($("<td>").appendTo(row));
+                      controls.push(image);
 
                       $.ajax(
                       {
@@ -1364,7 +1416,8 @@ rights in this software.
                         {
                           if(columns.data[0][0].slice(0, 7) == "file://")
                           {
-                            image.attr("checked", "checked");
+                            input.prop("checked", false);
+                            image.prop("checked", true);
                           }
                         }
                       });
@@ -1373,6 +1426,12 @@ rights in this software.
                     {
                       $("<td>").appendTo(row);
                     }
+
+                    $.each(controls, function(index, control){
+                      var others = controls.slice();
+                      others.splice(index, 1);
+                      control.click(deselect_companions(others));
+                    });
                   });
                   $("#remote-pi-browse").css("display", "none");
                   $("#remote-pi-parameters").css("display", "block");
@@ -1451,6 +1510,14 @@ rights in this software.
         });
         $("#remote-pi-button").button().click(function()
         {
+          window.remote_pi_model_type = null;
+          $("#remote-pi-form").dialog("option", "title", "Remote File Parameter Image Model");
+          $("#remote-pi-form").dialog("open");
+        });
+        $("#remote-ti-button").button().click(function()
+        {
+          window.remote_pi_model_type = "tracer-image";
+          $("#remote-pi-form").dialog("option", "title", "Remote File Tracer Image Model");
           $("#remote-pi-form").dialog("open");
         });
 

@@ -29,7 +29,7 @@ $.widget("parameter_image.table",
     "image-variable" : null,
     "x-variable" : null,
     "y-variable" : null,
-    colormap : null,
+    colorscale : null,
     hidden_simulations : [],
   },
 
@@ -44,8 +44,8 @@ $.widget("parameter_image.table",
 
     function cell_formatter(row, cell, value, columnDef, dataContext)
     {
-      if(columnDef.colormap)
-        return "<div class='highlightWrapper" + (value==null ? " null" : "") + ( d3.hcl(columnDef.colormap(value)).l > 50 ? " light" : " dark") + "' style='background:" + columnDef.colormap(value) + "'>" + value_formatter(value) + "</div>";
+      if(columnDef.colorscale)
+        return "<div class='highlightWrapper" + (value==null ? " null" : "") + ( d3.hcl(columnDef.colorscale(value)).l > 50 ? " light" : " dark") + "' style='background:" + columnDef.colorscale(value) + "'>" + value_formatter(value) + "</div>";
       else if(value==null)
         return "<div class='highlightWrapper" + (value==null ? " null" : "") + "'>" + value_formatter(value) + "</div>";
       return value_formatter(value);
@@ -53,8 +53,8 @@ $.widget("parameter_image.table",
 
     function editable_cell_formatter(row, cell, value, columnDef, dataContext)
     {
-      if(columnDef.colormap)
-        return "<div class='highlightWrapper" + (value==null ? " null" : "") + ( d3.hcl(columnDef.colormap(value)).l > 50 ? " light" : " dark") + "' style='background:" + columnDef.colormap(value) + "'>" + value_formatter(value) + "</div>";
+      if(columnDef.colorscale)
+        return "<div class='highlightWrapper" + (value==null ? " null" : "") + ( d3.hcl(columnDef.colorscale(value)).l > 50 ? " light" : " dark") + "' style='background:" + columnDef.colorscale(value) + "'>" + value_formatter(value) + "</div>";
       else if(value==null)
         return "<div class='highlightWrapper" + (value==null ? " null" : "") + "'>" + value_formatter(value) + "</div>";
       return value_formatter(value);
@@ -68,6 +68,7 @@ $.widget("parameter_image.table",
         self.grid.invalidate();
         self.trigger_row_selection = false;
         self.grid.setSelectedRows(sorted_rows);
+        self.grid.resetActiveCell();
         if(sorted_rows.length)
           self.grid.scrollRowToTop(Math.min.apply(Math, sorted_rows));
         self.element.trigger("variable-sort-changed", [column, order]);
@@ -108,8 +109,8 @@ $.widget("parameter_image.table",
           }
         );
       }
-      // Special options for numeric columns
-      if( self.options.metadata["column-types"][column_index] != "string" && self.options.metadata["column-count"]-1 != column_index ) {
+      // Special options for non-image and non-index columns
+      else if( self.options.metadata["column-count"]-1 != column_index ) {
         column.headerCssClass += " headerNumeric";
         column.header.buttons.push(
           {
@@ -214,7 +215,7 @@ $.widget("parameter_image.table",
       {
         for(var i in self.columns)
         {
-          if(self.options.metadata["column-types"][self.columns[i].id] != "string" && self.options.metadata["column-count"]-1 != self.columns[i].id){
+          if(self.options.images.indexOf(self.columns[i].id) == -1 && self.options.metadata["column-count"]-1 != self.columns[i].id){
             self.columns[i].header.buttons[1].cssClass = "icon-x-off";
             self.columns[i].header.buttons[1].tooltip = "Set as x variable";
             self.columns[i].header.buttons[1].command = "x-on";
@@ -230,7 +231,7 @@ $.widget("parameter_image.table",
       {
         for(var i in self.columns)
         {
-          if(self.options.metadata["column-types"][self.columns[i].id] != "string" && self.options.metadata["column-count"]-1 != self.columns[i].id){
+          if(self.options.images.indexOf(self.columns[i].id) == -1 && self.options.metadata["column-count"]-1 != self.columns[i].id){
             self.columns[i].header.buttons[2].cssClass = "icon-y-off";
             self.columns[i].header.buttons[2].tooltip = "Set as y variable";
             self.columns[i].header.buttons[2].command = "y-on";
@@ -263,10 +264,11 @@ $.widget("parameter_image.table",
     });
     self.grid.onHeaderClick.subscribe(function (e, args)
     {
-      if( !self._array_equal([args.column.field], self.options["variable-selection"]) && (self.options.metadata["column-types"][args.column.id] != "string") )
+      if( !self._array_equal([args.column.field], self.options["variable-selection"]) && 
+          self.options.images.indexOf(args.column.field) == -1
+        )
       {
         self.options["variable-selection"] = [args.column.field];
-        self._color_variables(self.options["variable-selection"]);
         self.element.trigger("variable-selection-changed", [self.options["variable-selection"]]);
       }
     });
@@ -279,6 +281,7 @@ $.widget("parameter_image.table",
     {
       self.trigger_row_selection = false;
       self.grid.setSelectedRows(sorted_rows);
+      self.grid.resetActiveCell();
       if(sorted_rows.length)
         self.grid.scrollRowToTop(Math.min.apply(Math, sorted_rows));
     });
@@ -299,6 +302,7 @@ $.widget("parameter_image.table",
     {
       self.trigger_row_selection = false;
       self.grid.setSelectedRows(sorted_rows);
+      self.grid.resetActiveCell();
       if(sorted_rows.length)
         self.grid.scrollRowToTop(Math.min.apply(Math, sorted_rows));
     });
@@ -319,6 +323,7 @@ $.widget("parameter_image.table",
       {
         self.trigger_row_selection = false;
         self.grid.setSelectedRows(sorted_rows);
+        self.grid.resetActiveCell();
         if(sorted_rows.length)
           self.grid.scrollRowToTop(Math.min.apply(Math, sorted_rows));
       });
@@ -331,7 +336,7 @@ $.widget("parameter_image.table",
       self.options[key] = value;
       self._color_variables(value);
     }
-    else if(key == "colormap")
+    else if(key == "colorscale")
     {
       self.options[key] = value;
       self._color_variables(self.options["variable-selection"]);
@@ -374,7 +379,7 @@ $.widget("parameter_image.table",
     var self = this;
     for(var i in self.columns)
     {
-      if(self.options.metadata["column-types"][self.columns[i].id] != "string" && self.options.metadata["column-count"]-1 != self.columns[i].id){
+      if(self.options.images.indexOf(self.columns[i].id) == -1 && self.options.metadata["column-count"]-1 != self.columns[i].id){
         if( self.columns[i].id == self.options["x-variable"]){
           self.columns[i].header.buttons[1].cssClass = "icon-x-on";
           self.columns[i].header.buttons[1].tooltip = "Current x variable";
@@ -394,7 +399,7 @@ $.widget("parameter_image.table",
     var self = this;
     for(var i in self.columns)
     {
-      if(self.options.metadata["column-types"][self.columns[i].id] != "string" && self.options.metadata["column-count"]-1 != self.columns[i].id){
+      if(self.options.images.indexOf(self.columns[i].id) == -1 && self.options.metadata["column-count"]-1 != self.columns[i].id){
         if( self.columns[i].id == self.options["y-variable"]){
           self.columns[i].header.buttons[0].cssClass = "icon-y-on";
           self.columns[i].header.buttons[0].tooltip = "Current y variable";
@@ -436,26 +441,17 @@ $.widget("parameter_image.table",
     for(var i in columns)
     {
       var column = columns[i];
-      if(self.options.colormap !== null && $.inArray(column.id, variables) != -1)
+      if(self.options.colorscale !== null && $.inArray(column.id, variables) != -1)
       {
-        // Make a copy of our global colormap, then adjust its domain to match our column-specific data.
-        column.colormap = self.options.colormap.copy();
-
-        var new_domain = []
-        var domain_scale = d3.scale.linear().domain([0, column.colormap.range().length]).range([self.options.statistics[column.id]["min"], self.options.statistics[column.id]["max"]]);
-        for(var i in column.colormap.range())
-          new_domain.push(domain_scale(i));
-        column.colormap.domain(new_domain);
-
+        column.colorscale = self.options.colorscale;
         column.cssClass = column.cssClass.split(" ")[0] + " highlight";
       }
       else
       {
-        column.colormap = null;
+        column.colorscale = null;
         column.cssClass = column.cssClass.split(" ")[0];
       }
     }
-
     self.grid.invalidate();
   },
 

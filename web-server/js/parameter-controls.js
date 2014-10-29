@@ -24,6 +24,7 @@ $.widget("parameter_image.controls",
     rating_variables : [],
     category_variables : [],
     selection : [],
+    hidden_simulations : [],
   },
 
   _create: function()
@@ -50,15 +51,18 @@ $.widget("parameter_image.controls",
       .appendTo(this.element)
       ;
 
-    this.images_label = $("<label for='images-switcher'>Image Set:</label>")
-      .appendTo(this.element)
-      ;
-    this.images_select = $("<select id='images-switcher' name='images-switcher' />")
-      .change(function(){
-        self.element.trigger("images-selection-changed", this.value);
-      })
-      .appendTo(this.element)
-      ;
+    if(this.options.image_variables != null && this.options.image_variables.length > 0)
+    {
+      this.images_label = $("<label for='images-switcher'>Image Set:</label>")
+        .appendTo(this.element)
+        ;
+      this.images_select = $("<select id='images-switcher' name='images-switcher' />")
+        .change(function(){
+          self.element.trigger("images-selection-changed", this.value);
+        })
+        .appendTo(this.element)
+        ;
+    }
 
     this.color_label = $("<label for='color-variable-switcher'>Point Color:</label>")
       .appendTo(this.element)
@@ -106,16 +110,23 @@ $.widget("parameter_image.controls",
       .appendTo(this.element)
       ;
 
+    this.show_all_button = $("<button>Show All</button>")
+      .click(function(){
+        self.element.trigger("show-all");
+      })
+      .appendTo(this.element)
+      ;
+
     this.csv_button = $("<button>Download Data Table</button>")
-	.click(function(){
-          if (self.options.selection.length == 0) {
-	    self._write_data_table();
-	  } else {
-            openCSVSaveChoiceDialog();
-          }
-	})
-	.appendTo(this.element)
-	;
+    	.click(function(){
+        if (self.options.selection.length == 0) {
+    	    self._write_data_table();
+    	  } else {
+          openCSVSaveChoiceDialog();
+        }
+    	})
+    	.appendTo(this.element)
+    	;
 
     $('#set-value-form').dialog({
       modal: true,
@@ -127,11 +138,15 @@ $.widget("parameter_image.controls",
           var value = $('input#value', this).val().trim();
           var numeric = self.options.metadata["column-types"][variableIndex] != "string";
           var valueValid = value.length > 0;
-          if( valueValid && numeric && Number.isNaN(Number(value)) ) {
+          if( valueValid && numeric && isNaN(Number(value)) ) {
             valueValid = false;
           }
           if(valueValid) {
-            self.element.trigger("set-value", {selection : self.options.selection, variable : variableIndex, value : value});
+            self.element.trigger("set-value", {
+              selection : self.options.selection, 
+              variable : variableIndex, 
+              value : numeric ? value : '"' + value + '"',
+            });
             $(this).dialog('close');
           } else {
             var message = "Please enter a value.";
@@ -207,6 +222,7 @@ $.widget("parameter_image.controls",
     self._set_image_variables();
     self._set_color_variables();
     self._set_selection_control();
+    self._set_show_all();
   },
 
 
@@ -221,7 +237,6 @@ $.widget("parameter_image.controls",
     if (selectionList.length > 0) {
       selectionList.sort(function(x,y) {return x-y});
       rowRequest = "rows=" + selectionList.toString();
-      //console.log("++ writing partial table rowRequest: " + rowRequest);
     } else {
       rowRequest = "rows=0-" + numRows;
     }
@@ -245,31 +260,22 @@ $.widget("parameter_image.controls",
   _write_csv: function(csvData, defaultFilename)
   {
     var self = this;
-    //var D = self.window.document;
-    var D = document;   // is this the best way to do this?
-    //var A = arguments;
-    //var a = self.createElement("a");
+    var D = document;
     var a = D.createElement("a");
     var strMimeType = "text/plain";
     var defaultFilename = defaultFilename || "slycatDataTable.csv";
 
     //build download link:
-    a.href = "data:" + strMimeType + "charset=utf-8," + encodeURIComponent(csvData);  //encodeURIComponent() handles all special chars
+    a.href = "data:" + strMimeType + ";charset=utf-8," + encodeURIComponent(csvData);  //encodeURIComponent() handles all special chars
 
     if ('download' in a) { //FF20, CH19
-      //console.log( "++ FF20 CH19 processing..." );
-      //console.log( a );
       a.setAttribute("download", defaultFilename);
-      //a.setAttribute("download", n);
       a.innerHTML = "downloading...";
-      //this.element.appendChild(a);
       D.body.appendChild(a);
       setTimeout(function() {
-	//var e = this.createEvent("MouseEvents");
-        var e = D.createEvent("MouseEvents");
+        var e = D.createEvent("MouseEvent");
 	e.initMouseEvent("click", true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
 	a.dispatchEvent(e);
-	//this.element.removeChild(a);
 	D.body.removeChild(a);
       }, 66);
       return true;
@@ -357,17 +363,21 @@ $.widget("parameter_image.controls",
   _set_image_variables: function()
   { 
     var self = this;
-    this.images_select.empty();
-    for(var i = 0; i < this.options.image_variables.length; i++) {
-      $("<option />")
-        .text(this.options.metadata['column-names'][this.options.image_variables[i]])
-        .attr("value", this.options.image_variables[i])
-        .attr("selected", function(){
-          return self.options["image-variable"] == self.options.image_variables[i] ? "selected" : false;
-        })
-        .appendTo(this.images_select)
-        ;
+    if(this.options.image_variables != null && this.options.image_variables.length > 0)
+    {
+      this.images_select.empty();
+      for(var i = 0; i < this.options.image_variables.length; i++) {
+        $("<option />")
+          .text(this.options.metadata['column-names'][this.options.image_variables[i]])
+          .attr("value", this.options.image_variables[i])
+          .attr("selected", function(){
+            return self.options["image-variable"] == self.options.image_variables[i] ? "selected" : false;
+          })
+          .appendTo(this.images_select)
+          ;
+      }
     }
+    
   },
 
   _set_color_variables: function()
@@ -409,12 +419,13 @@ $.widget("parameter_image.controls",
         .attr("label", "set")
         .appendTo(optgroup)
         ;
-      $("<option />")
-        .text("Clear")
-        .attr("value", this.options.rating_variables[i])
-        .attr("label", "clear")
-        .appendTo(optgroup)
-        ;
+      // Disabling clear functionality for ratings since it causes problems with nulls
+      // $("<option />")
+      //   .text("Clear")
+      //   .attr("value", this.options.rating_variables[i])
+      //   .attr("label", "clear")
+      //   .appendTo(optgroup)
+      //   ;
     }
 
     for(var i = 0; i < this.options.category_variables.length; i++)
@@ -470,8 +481,7 @@ $.widget("parameter_image.controls",
     
 
     // Set state
-    this.selection_select.prop("disabled", this.options.selection.length == 0);
-    this.selection_label.toggleClass("disabled", this.options.selection.length == 0);
+    self._set_selection();
   },
 
   _set_selected_x: function()
@@ -489,7 +499,10 @@ $.widget("parameter_image.controls",
   _set_selected_image: function()
   {
     var self = this;
-    this.images_select.val(self.options["image-variable"]);
+    if(self.options["image-variable"] != null && self.options.image_variables.length > 0)
+    {
+      this.images_select.val(self.options["image-variable"]);
+    }
   },
 
   _set_selected_color: function()
@@ -503,6 +516,18 @@ $.widget("parameter_image.controls",
     var self = this;
     this.selection_select.prop("disabled", this.options.selection.length == 0);
     this.selection_label.toggleClass("disabled", this.options.selection.length == 0);
+  },
+
+  _set_show_all: function()
+  {
+    var self = this,
+        noneHidden = this.options.hidden_simulations.length == 0;
+        titleText = 'Show All Hidden Scatterplot Points';
+    if(noneHidden) {
+      titleText = 'There are currently no hidden scatterplot points to show.';
+    }
+    this.show_all_button.prop("disabled", noneHidden);
+    this.show_all_button.attr("title", titleText);
   },
 
   _setOption: function(key, value)
@@ -547,6 +572,10 @@ $.widget("parameter_image.controls",
     else if(key == 'selection')
     {
       self._set_selection();
+    }
+    else if(key == 'hidden_simulations')
+    {
+      self._set_show_all();
     }
   },
 

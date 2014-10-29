@@ -4,144 +4,118 @@ Setup Slycat Web Server
 =======================
 
 Note: If you're new to Slycat and are here give it a try, please see
-:ref:`Install Slycat` instead. The following outlines how we setup the
-Slycat Web Server when we build the a custom Slycat virtual machine.
-It's intended as a guide for advanced users who are interested in
-setting-up Slycat Web Server on their own hardware.  Of course,
-you'll have to adjust these instructions for your own OS.
+:ref:`Install Slycat` instead. The following is a guide for
+users who are ready to setup their own Slycat Web Server for production.
 
-Create the Virtual Machine
---------------------------
+Use the Docker Image
+--------------------
 
--  We used VirtualBox to create a new VM and installed CentOS 6.5 64-bit
-   as the OS.
--  The VM should have at least 2 CPUs, and use SCSI instead of SATA as
-   the disk controller.
+Many administrators should be able to use the Slycat Docker image in production directly, 
+and we strongly urge you to try this approach first - after
+following the instructions to :ref:`Install Slycat`, you can simply ssh into the running Docker container::
 
-As user root:
--------------
+  $ ssh slycat@<docker ip address> -p2222
 
--  Add a "slycat" user.
--  Add the slycat user to group wheel and allow group wheel to use sudo.
--  Setup the EPEL respository:
+make a few configuration changes (assigning real passwords to the root and slycat users, replacing
+our self-signed server certificate with one of your own, changing the listening port, locking-down ssh access, etc.)
+then continue using the image in production.  Because the Slycat Docker image is a container
+rather than a VM, there is absolutely no performance penalty for using it in this configuration.
+You can even use Docker to automate this process, building your own site-specific Slycat image
+with our Slycat image as the base!
 
-   ::
+Installing Slycat from Scratch
+------------------------------
 
-       $ wget http://dl.fedoraproject.org/pub/epel/6/i386/epel-release-6-8.noarch.rpm
-       $ rpm -ivh epel-release-6-8.noarch.rpm
+If you insist on creating your own Slycat instance from scratch, 
+we still prefer to point you to our `Dockerfiles` for
+information on installing Slycat and its dependencies, because these files are the actual scripts
+that we use to build the Slycat Docker image - thus they're an
+always-up-to-date and unambiguous specification of how to build a Slycat
+server.  Even if you don't use Docker, the Dockerfiles
+are easy to understand and adapt to your own workflow and platform.
 
--  Setup the Chromium repository:
+You will find our Dockerfiles in a set of directories located in the `docker`
+directory within the Slycat repo:
 
-   ::
+  https://github.com/sandialabs/slycat/tree/master/docker
 
-       $ cd /etc/yum.repos.d
-       $ wget http://people.centos.org/hughesjr/chromium/6/chromium-el6.repo
+There, you will find four subdirectories - `supervisord`, `sshd`, `slycat`, and `slycat-dev`
+- which are used to build four Docker images.  Each image builds on the
+previous, adding new functionality:
 
--  Get the latest packages with ``yum upgrade``.
--  Install packaged prerequisites:
+* supervisord - Starts with a Fedora Core base system, and adds an instance of supervisord that
+  will be used to startup the other processes.
+* sshd - Installs an SSH server on top of the supervisord image, and configures supervisord
+  to automatically start it when the container is run.
+* slycat - Installs the Slycat server and its dependencies atop the sshd image, and configures
+  supervisord to automatically start it when the container is run.
+* slycat-dev - Adds development tools to the base Slycat image, and disables automatic Slycat
+  startup so developers can run it themselves.
 
-   ::
+The main differences between platforms will be in how you install the various
+dependencies.  One platform - such as Fedora Core in our Dockerfile - installs
+the Python h5py module and its compiled hdf5 library dependency using a single
+yum package, while another platform - such as Centos 6 - provides a yum package
+for hdf5, but no package for the Python h5py module, so you have to use pip to
+install it.  Unfortunately, we can't enumerate all the possibilities here, so
+you'll have to begin with the packages listed in our Dockerfiles, and
+generalize to your platform.
 
-       $ yum install couchdb
-       $ yum install git
-       $ yum install zlib-devel
-       $ yum install bzip2-devel
-       $ yum install openssl-devel
-       $ yum install ncurses-devel
-       $ yum install blas-devel
-       $ yum install lapack-devel
-       $ yum install openldap-devel
-       $ yum install readline-devel
-       $ yum install tk-devel
-       $ yum install gcc-c++
-       $ yum install libpng-devel
-       $ yum install chromium
-       $ yum install hdf5-devel
-       $ yum install libjpeg-turbo-devel
+Configuring Slycat Web Server
+-----------------------------
 
--  Start the CouchDB service and set it up to start automatically at
-   boot:
+Whether you're setting-up an unmodified Slycat Web Server or developing new
+capabilities to suit your needs, you will need to know how to modify its
+configuration.  When you start Slycat Web Server::
 
-   ::
+  $ cd slycat/web-server
+  $ python slycat-web-server.py
 
-       $ /etc/init.d/couchdb start
-       $ /sbin/chkconfig couchdb on
+... it automatically loads a file `config.ini` from the same directory as slycat-web-server.py.
+The sample `config.ini` that we provide with the source code is designed
+to start Slycat in a state that's useful for developers, so you'll likely want
+to copy it to some other filesystem location, modify it, and point Slycat to
+the modified `config.ini` instead.  Once you've done that, you can specify the config file location
+at startup using the command-line::
 
-As user "slycat":
------------------
+  $ python slycat-web-server.py --config=/etc/slycat/config.ini
 
--  Build Python 2.7 from source, installing it in -/install/python:
+The `config.ini` file is an INI file divided into sections using square braces.
+The `[slycat]` section is reserved for configuration specific to the
+functionality of the Slycat server, while the `[global]` section and any
+sections starting with a slash (for example: `[/style]`) are used to configure
+the `CherryPy <http://www.cherrypy.org>`_ web server that Slycat is based upon.
 
-   ::
+The values for each setting in `config.ini` must be valid Python expressions.
+You should note that in the sample `config.ini` we provide, some values are
+simple scalars, such as `[global] server.socket_port`, while some values create
+object instances, such as `[slycat] directory`, which creates a directory
+object that handles looking-up user metadata.  This provides great flexibility to
+customize Slycat for your network.  Here are some common settings you may wish
+to modify:
 
-       $ ./configure --prefix=/home/slycat/install/python --enable-shared
-       $ make install
+[global] Section
+^^^^^^^^^^^^^^^^
 
--  Add ``export PATH=-/install/python/bin:$PATH`` to -/.bashrc
--  Add ``export LD_LIBRARY_PATH=-/install/python/lib:$LD_LIBRARY_PATH``
-   to -/.bashrc
--  Verify that the above environment takes effect in your shell before
-   proceeding.
--  Install Python setuptools:
+* engine.autoreload.on - Controls whether Slycat will automatically restart when the source code is modified.  This is typically disabled in production.
+* require.show_tracebacks - Controls whether exceptions during request handling will return debugging information to the client.  This is typically disabled in production.
+* server.socket_host - IP address of the interface to listen on for requests.  Use "0.0.0.0" to listen on all interfaces.  Use "127.0.0.1" to only accept requests from the local machine.
+* server.socket_port - TCP port number to listen on for requests.  Defaults to "8092" for development.  Typically set to "443" in production with SSL enabled, or "80" with SSL disabled.
+* server.ssl_certificate - Path to a certificate used for SSL encryption.  Leave blank to disable SSL.  Relative paths are relative to the slycat-web-server.py executable.
+* server.ssl_private_key - Path to a private key used for SSL encryption.  Leave blank to disable SSL.  Relative paths are relative to the slycat-web-server.py executable.
 
-   ::
+[slycat] Section
+^^^^^^^^^^^^^^^^
 
-       $ wget https://bitbucket.org/pypa/setuptools/downloads/ez_setup.py -O - | python
+* allowed-markings - List of marking types that may be assigned to models.
+* plugins - List of filesystem plugin locations.  You may specify individual .py files to be loaded, or directories.  If you specify a directory, every .py file in the directory will be loaded, but directories are `not` searched recursively.  Relative paths are relative to the slycat-web-server.py executable.
+* remote-hosts - Dict mapping string hostnames to dicts containing host-specific configuration.  Each host dict may contain any of the following:
 
--  Install pip:
+    * agent - Optional dict configuring remote agent access on the host.  Some models require the Slycat Agent when accessing a remote host, and agents must be explicitly configured on a host to be used.  The agent dict must contain the following:
 
-   ::
+        * command - Required string with the full remote command-line used to run the Slycat agent on the given host.  Typically `/full/path/to/python /full/path/to/slycat-agent.py`.  Since an agent session can be initiated by any user able to login to the remote host via ssh, you should specify required environment variables as part of this command, too (for example, with `env`).
 
-       $ curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
-       $ python get-pip.py
+    * message - Optional string displayed by the user interface when this host is selected.  Use this to warn users of host limitations or suggest alternates.
 
--  Install Python prerequisites:
-
-   ::
-
-       $ pip install cherrypy==3.2.6
-       $ pip install couchdb
-       $ pip install paramiko
-       $ pip install routes
-       $ pip install pyopenssl
-       $ pip install requests
-       $ pip install numpy
-       $ pip install scipy
-       $ pip install python-ldap
-       $ pip install nose
-       $ pip install ipython
-       $ pip install pystache
-       $ pip install h5py
-       $ pip install pyzmq
-       $ pip install Jinja2
-       $ pip install tornado
-       $ pip install Pillow
-
--  Clone the Slycat repo into -/src:
-
-   ::
-
-       $ git clone https://github.com/sandialabs/slycat.git
-
--  Add ``export PYTHONPATH=-/src/slycat/packages:$PYTHONPATH`` to
-   -/.bashrc
-
--  Configure the couchdb database for use with Slycat:
-
-   ::
-
-       $ cd src/slycat/web-server
-       $ python slycat-couchdb-setup.py
-
--  Import the Slycat root certificate ``slycat/web-server/root-ca.pem``
-   into Firefox and Chromium as a trusted authority for identifying
-   websites.
-
--  Add
-   ``export REQUESTS_CA_BUNDLE=/home/slycat/src/slycat/web-server/root-ca.pem``
-   to -/.bashrc, so push scripts don't have to use the --no-verify
-   option.
-
--  Set the Firefox and Chromium startup pages to https://localhost:8092
-
+* server-admins - List of users allowed to administer the Slycat server.  Server administrators have full read/write access to all projects, regardless of project ACLs.
 

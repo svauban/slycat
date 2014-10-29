@@ -1,0 +1,120 @@
+/*
+Copyright 2013, Sandia Corporation. Under the terms of Contract
+DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains certain
+rights in this software.
+*/
+.top-shelf{
+  height:50px;
+  padding-right:5px;
+  margin-bottom:5px;
+}
+.pull-left{
+  float:left;
+}
+.file-path-entry{
+  float: left;
+  margin-left: 30px;
+}
+.path-entry-input{
+  width: 300px;
+}
+.remote-browser-next-button{
+  float: right;
+  margin-top: 10px;
+}
+#remote-pi-browser{
+  display: inline-block;
+  margin-bottom:15px;
+}
+table.file-browser{
+  float: left;
+  min-width: 80px;
+}
+table.file-browser#t1{
+  clear: both;
+}
+ul.file-browser
+{
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+  margin:0;
+  padding:0;
+  width:200px;
+  border-right:1px solid black;
+}
+
+.file-browser .hidden
+{
+  display: none;
+}
+
+.file-browser li > div
+{
+  width: 100%;
+  height: 20px;
+}
+
+.file-browser tr.selected > div
+{
+  background: #4478cf;
+  color: white;
+}
+
+.file-browser .arrow
+{
+  display: inline-block;
+  vertical-align: middle;
+  width: 18px;
+  height: 18px;
+}
+
+.file-browser .icon
+{
+  display: inline-block;
+  vertical-align: middle;
+  width: 18px;
+  height: 18px;
+}
+
+.file-browser .label
+{
+  display: inline-block;
+  vertical-align: middle;
+  height: 12px;
+  margin-left: 3px;
+  margin-top: 2px;
+}
+
+.file-browser tr.host > div > .arrow, .file-browser tr.directory > div > .arrow
+{
+  background: url(arrow-right-small.png) no-repeat center;
+}
+.file-browser tr.host.open > div, .file-browser tr.directory.open > div
+{
+  background: #e7f6f7;
+  color: black;
+  border: 1px solid black;
+  padding: 2px;
+}
+.file-browser tr.host.open > div > .arrow, .file-browser tr.directory.open > div > .arrow
+{
+  background: url(arrow-down-small.png) no-repeat center;
+}
+
+.file-browser tr.host > div > .icon, .file-browser tr.directory > div > .icon
+{
+  background: url(directory-small.png) no-repeat center;
+}
+
+.file-browser tr.directory.forbidden > div > .icon
+{
+  background: url(directory-forbidden-small.png) no-repeat center;
+}
+
+.file-browser tr.file > div > .icon
+{
+  background: url(file-small.png) no-repeat center;
+}

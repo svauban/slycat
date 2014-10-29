@@ -54,7 +54,10 @@ if arguments.model_description is None:
   arguments.model_description += "Cluster method: %s.\n" % arguments.cluster_type
   arguments.model_description += "Cluster distance metric: %s.\n" % arguments.cluster_metric
 
-pool = IPython.parallel.Client()
+try:
+  pool = IPython.parallel.Client()
+except:
+  raise Exception("A running IPython parallel cluster is required to run this script.")
 
 def mix(a, b, amount):
   return ((1.0 - amount) * a) + (amount * b)
@@ -66,7 +69,7 @@ connection = slycat.web.client.connect(arguments)
 pid = connection.find_or_create_project(arguments.project_name, arguments.project_description)
 
 # Create the new, empty model.
-mid = connection.create_model(pid, "timeseries", arguments.model_name, arguments.marking, arguments.model_description)
+mid = connection.post_project_models(pid, "timeseries", arguments.model_name, arguments.marking, arguments.model_description)
 
 # Compute the model.
 try:
@@ -74,10 +77,10 @@ try:
   connection.update_model(mid, message="Storing clustering parameters.")
   slycat.web.client.log.info("Storing clustering parameters.")
 
-  connection.store_parameter(mid, "cluster-bin-count", arguments.cluster_sample_count)
-  connection.store_parameter(mid, "cluster-bin-type", arguments.cluster_sample_type)
-  connection.store_parameter(mid, "cluster-type", arguments.cluster_type)
-  connection.store_parameter(mid, "cluster-metric", arguments.cluster_metric)
+  connection.put_model_parameter(mid, "cluster-bin-count", arguments.cluster_sample_count)
+  connection.put_model_parameter(mid, "cluster-bin-type", arguments.cluster_sample_type)
+  connection.put_model_parameter(mid, "cluster-type", arguments.cluster_type)
+  connection.put_model_parameter(mid, "cluster-metric", arguments.cluster_metric)
 
   connection.update_model(mid, message="Storing input table.")
 
@@ -91,12 +94,12 @@ try:
       raise Exception("Inputs table must have exactly one dimension.")
     timeseries_count = dimensions[0]["end"] - dimensions[0]["begin"]
 
-    connection.start_array_set(mid, "inputs")
-    connection.start_array(mid, "inputs", 0, attributes, dimensions)
+    connection.put_model_arrayset(mid, "inputs")
+    connection.put_model_arrayset_array(mid, "inputs", 0, dimensions, attributes)
     for attribute in range(len(attributes)):
       slycat.web.client.log.info("Storing input table attribute %s", attribute)
       data = array.get_data(attribute)[...]
-      connection.store_array_set_data(mid, "inputs", 0, attribute, data=data)
+      connection.put_model_arrayset_data(mid, "inputs", (0, attribute, numpy.index_exp[...], data))
 
   # Create a mapping from unique cluster names to timeseries attributes.
   connection.update_model(mid, state="running", started = datetime.datetime.utcnow().isoformat(), progress = 0.0, message="Mapping cluster names.")
@@ -111,7 +114,7 @@ try:
       clusters[attribute["name"]].append((timeseries_index, attribute_index))
 
   # Store an alphabetized collection of cluster names.
-  connection.store_file(mid, "clusters", json.dumps(sorted(clusters.keys())), "application/json")
+  connection.put_model_file(mid, "clusters", json.dumps(sorted(clusters.keys())), "application/json")
 
   # Get the minimum and maximum times for every timeseries.
   def get_time_range(directory, timeseries_index):
@@ -124,7 +127,7 @@ try:
 
   connection.update_model(mid, message="Collecting timeseries statistics.")
   slycat.web.client.log.info("Collecting timeseries statistics.")
-  time_ranges = pool[:].map_sync(get_time_range, itertools.repeat(arguments.directory, timeseries_count), range(timeseries_count))
+  time_ranges = pool[:].map_sync(get_time_range, list(itertools.repeat(arguments.directory, timeseries_count)), range(timeseries_count))
 
   # For each cluster ...
   for index, (name, storage) in enumerate(sorted(clusters.items())):
@@ -158,10 +161,10 @@ try:
           "times" : bin_times,
           "values" : bin_values,
         }
-      directories = itertools.repeat(arguments.directory, len(storage))
-      min_times = itertools.repeat(time_min, len(storage))
-      max_times = itertools.repeat(time_max, len(storage))
-      bin_counts = itertools.repeat(arguments.cluster_sample_count, len(storage))
+      directories = list(itertools.repeat(arguments.directory, len(storage)))
+      min_times = list(itertools.repeat(time_min, len(storage)))
+      max_times = list(itertools.repeat(time_max, len(storage)))
+      bin_counts = list(itertools.repeat(arguments.cluster_sample_count, len(storage)))
       timeseries_indices = [timeseries for timeseries, attribute in storage]
       attribute_indices = [attribute for timeseries, attribute in storage]
       waveforms = pool[:].map_sync(uniform_pla, directories, min_times, max_times, bin_counts, timeseries_indices, attribute_indices)
@@ -190,10 +193,10 @@ try:
           "times" : bin_times,
           "values" : bin_values,
         }
-      directories = itertools.repeat(arguments.directory, len(storage))
-      min_times = itertools.repeat(time_min, len(storage))
-      max_times = itertools.repeat(time_max, len(storage))
-      bin_counts = itertools.repeat(arguments.cluster_sample_count, len(storage))
+      directories = list(itertools.repeat(arguments.directory, len(storage)))
+      min_times = list(itertools.repeat(time_min, len(storage)))
+      max_times = list(itertools.repeat(time_max, len(storage)))
+      bin_counts = list(itertools.repeat(arguments.cluster_sample_count, len(storage)))
       timeseries_indices = [timeseries for timeseries, attribute in storage]
       attribute_indices = [attribute for timeseries, attribute in storage]
       waveforms = pool[:].map_sync(uniform_paa, directories, min_times, max_times, bin_counts, timeseries_indices, attribute_indices)
@@ -265,21 +268,19 @@ try:
 
     # Store the cluster.
     slycat.web.client.log.info("Storing %s" % name)
-    connection.store_file(mid, "cluster-%s" % name, json.dumps({
+    connection.put_model_file(mid, "cluster-%s" % name, json.dumps({
       "linkage":linkage.tolist(),
       "exemplars":exemplars,
       "input-indices":[waveform["input-index"] for waveform in waveforms],
       }), "application/json")
 
-    connection.start_array_set(mid, "preview-%s" % name)
+    connection.put_model_arrayset(mid, "preview-%s" % name)
     for index, waveform in enumerate(waveforms):
       slycat.web.client.log.info("Creating preview %s" % index)
-      attributes = [dict(name="time", type="float64"), dict(name="value", type="float64")]
       dimensions = [dict(name="sample", end=len(waveform["times"]))]
-      connection.start_array(mid, "preview-%s" % name, index, attributes, dimensions)
-
-    slycat.web.client.log.info("Storing previews")
-    connection.store_array_set_data(mid, "preview-%s" % name, data=[waveform[key] for waveform in waveforms for key in ["times", "values"]])
+      attributes = [dict(name="time", type="float64"), dict(name="value", type="float64")]
+      connection.put_model_arrayset_array(mid, "preview-%s" % name, index, dimensions, attributes)
+      connection.put_model_arrayset_data(mid, "preview-%s" % name, [(index, 0, numpy.index_exp[...], waveform["times"]), (index, 1, numpy.index_exp[...], waveform["values"])])
 
   connection.update_model(mid, state="finished", result="succeeded", finished=datetime.datetime.utcnow().isoformat(), progress=1.0, message="")
 except:
