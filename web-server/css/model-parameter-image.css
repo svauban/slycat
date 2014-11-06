@@ -419,3 +419,6 @@ rights in this software.
 .dialogErrorMessage {
   color: red;
 }
+#scatterplot canvas {
+  z-index: -1;
+}
