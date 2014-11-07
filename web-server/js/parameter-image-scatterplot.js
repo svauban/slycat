@@ -1556,8 +1556,23 @@ $.widget("parameter_image.scatterplot",
       // (probably file permissions issues).
       if(this.status == 400)
       {
-        console.log(this);
-        window.alert("Couldn't load image " + this.image.uri + ": " + this.statusText);
+	      console.log(this);
+        console.log(this.getAllResponseHeaders());
+        var message = this.getResponseHeader("slycat-message");
+        var hint = this.getResponseHeader("slycat-hint");
+
+        if(message && hint)
+        {
+          window.alert(message + "\n\n" + hint);
+        }
+        else if(message)
+        {
+          window.alert(message);
+        }
+        else
+        {
+          window.alert("Error loading image " + this.image.uri + ": " + this.statusText);
+        }
         return;
       }
 
