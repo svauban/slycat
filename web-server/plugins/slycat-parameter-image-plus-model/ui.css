@@ -345,7 +345,7 @@ rights in this software.
   padding-bottom: 35px;
 }
 #controls-pane {
-  
+
 }
 .center {
   text-align: center;
@@ -449,7 +449,7 @@ rights in this software.
 }
 
 /* dendrogram styles */
-#dendrogram-pane #dendrogram-sort-control 
+#dendrogram-pane #dendrogram-sort-control
 {
   position: absolute;
   bottom: 0px;
@@ -538,7 +538,7 @@ rights in this software.
   stroke-width: 4px;
 }
 #dendrogram-viewer g.sparkline path.highlight {
-  
+
 }
 #dendrogram-viewer g.sparkline path.nullValue {
   stroke-dasharray: 2px, 2px;
@@ -574,4 +574,8 @@ rights in this software.
   padding: 0;
   border: 0;
   margin: 0;
+}
+
+.ui-tabs .ui-tabs-panel {
+  padding: 0px;
 }

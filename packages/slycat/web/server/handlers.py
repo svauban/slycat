@@ -327,6 +327,7 @@ def get_model(mid, **kwargs):
     with get_model.bundle_lock:
       get_model.css_bundle = slycat.web.server.resource.manager.add_bundle("text/css",
       [
+        "css/smoothness/jquery-ui-1.10.4.custom.min.css",
         "css/namespaced-bootstrap.css",
         "css/slycat.css",
       ])

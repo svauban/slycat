@@ -180,28 +180,48 @@ function artifact_missing()
 //////////////////////////////////////////////////////////////////////////////////////////
 // Setup page layout.
 //////////////////////////////////////////////////////////////////////////////////////////
-$("#parameter-image-plus-layout").height($(window).height() - 300);
-$(window).resize(function()
-{
-  $("#parameter-image-plus-layout").height($(window).height() - 300);
+
+var panelHeight, markingHeight, padding, marking;
+
+if (typeof (padding = $(".airmail-marking").css("padding")) !== "undefined") {
+  // markingHeight = parseInt(padding, 10) * 2; //top and bottom
+  panelHeight = 60;
+}
+else if ((marking = $(".faculty-marking")).length > 0) {
+  // markingHeight = (marking.height() + parseInt(marking.css("padding"), 10) +
+  //   parseInt(marking.css("border-top"), 10) + parseInt(marking.css("border-bottom"))) * 2; //top and bottom
+  panelHeight = 117;
+}
+else {
+  //markingHeight = 0;
+  panelHeight = 100;
+}
+//var panelHeight = $("nav.navbar").height() + markingHeight;
+
+var plugin = $("#parameter-image-plus-tracer-layout").height($(window).height() - panelHeight);
+$('#tabs').tabs();
+var pimp = $("#pimp-tab").height(plugin.height()-50);
+$(window).resize(function() {
+  plugin.height($(window).height() - panelHeight);
+  pimp.height(plugin.height()-50);
 });
 
-$("#parameter-image-plus-layout").layout(
+$('#pimp-tab').layout(
 {
   north:
   {
-    size: 28,
+    size: 56
   },
   center:
   {
   },
   west:
   {
-    size: $("#parameter-image-plus-layout").width() / 2,
+    size: plugin.width() / 2,
   },
   south:
   {
-    size: $("#parameter-image-plus-layout").height() / 4,
+    size: plugin.height() / 4,
     resizeWhileDragging: false,
     onresize: function()
     {
@@ -216,11 +236,11 @@ $("#model-pane").layout(
   center:
   {
     resizeWhileDragging: false,
-    onresize: function() { 
+    onresize: function() {
       $("#scatterplot").scatterplot("option", {
-        width: $("#scatterplot-pane").width(), 
+        width: $("#scatterplot-pane").width(),
         height: $("#scatterplot-pane").height()
-      }); 
+      });
     },
   }
 });
@@ -234,7 +254,7 @@ function build_dendrogram_node_options(cluster_index)
   var dendrogram_options = {
     cluster: cluster_index,
   };
-  
+
   dendrogram_options.collapsed_nodes = bookmark[cluster_index  + "-collapsed-nodes"];
   dendrogram_options.expanded_nodes = bookmark[cluster_index  + "-expanded-nodes"];
   dendrogram_options.selected_nodes = bookmark[cluster_index  + "-selected-nodes"];
@@ -392,7 +412,7 @@ function metadata_loaded()
       $.ajax(
       {
         type : "GET",
-        url : server_root + "models/" + model_id + "/arraysets/data-table/arrays/0/attributes/" 
+        url : server_root + "models/" + model_id + "/arraysets/data-table/arrays/0/attributes/"
           + images_index + "/chunk?ranges=0," + table_metadata["row-count"],
         success : function(result)
         {
@@ -414,7 +434,7 @@ function metadata_loaded()
 
 function setup_dendrogram()
 {
-  if(!dendrogram_ready && bookmark && clusters != null && cluster_index != null && clusters_data != null 
+  if(!dendrogram_ready && bookmark && clusters != null && cluster_index != null && clusters_data != null
     && clusters_data[cluster_index] !== undefined && colorscale && v && selected_simulations != null)
   {
     dendrogram_ready = true;
@@ -444,7 +464,7 @@ function setup_dendrogram()
 function setup_table()
 {
   if( !table_ready && table_metadata && (table_statistics.length == table_metadata["column-count"]) && colorscale
-    && bookmark && (x_index != null) && (y_index != null) && (images_index !== null) 
+    && bookmark && (x_index != null) && (y_index != null) && (images_index !== null)
     && (selected_simulations != null) && (hidden_simulations != null) )
   {
     table_ready = true;
@@ -454,7 +474,7 @@ function setup_table()
     var other_columns = [];
     for(var i = 0; i != table_metadata["column-count"] - 1; ++i)
     {
-      if($.inArray(i, input_columns) == -1 && $.inArray(i, output_columns) == -1 
+      if($.inArray(i, input_columns) == -1 && $.inArray(i, output_columns) == -1
         && $.inArray(i, rating_columns) == -1 && $.inArray(i, category_columns) == -1)
         other_columns.push(i);
     }
@@ -586,7 +606,7 @@ function setup_table()
     {
       // Changing the color variable updates the table ...
       $("#table").table("option", "variable-selection", [Number(variable)]);
-      
+
       // Handle changes to the color variable ...
       handle_color_variable_change(variable);
     });
@@ -668,7 +688,7 @@ function setup_scatterplot()
       $.ajax(
       {
         type : "GET",
-        url : server_root + "models/" + model_id + "/arraysets/data-table/arrays/0/attributes/" + 
+        url : server_root + "models/" + model_id + "/arraysets/data-table/arrays/0/attributes/" +
           variable + "/chunk?ranges=0," + table_metadata["row-count"],
         success : function(result)
         {
@@ -682,7 +702,7 @@ function setup_scatterplot()
       $.ajax(
       {
         type : "GET",
-        url : server_root + "models/" + model_id + "/arraysets/data-table/arrays/0/attributes/" + 
+        url : server_root + "models/" + model_id + "/arraysets/data-table/arrays/0/attributes/" +
           variable + "/chunk?ranges=0," + table_metadata["row-count"],
         success : function(result)
         {
@@ -702,7 +722,7 @@ function setup_scatterplot()
 
 function setup_controls()
 {
-  if( !controls_ready && table_metadata && (image_columns !== null) && (rating_columns != null) 
+  if( !controls_ready && table_metadata && (image_columns !== null) && (rating_columns != null)
     && (category_columns != null) && (x_index != null) && (y_index != null) && auto_scale != null
     && (images_index !== null) && (selected_simulations != null) && (hidden_simulations != null)
     && (cluster_index != null) && (clusters != null)
