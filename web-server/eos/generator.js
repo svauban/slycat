@@ -1,7 +1,7 @@
 var Generator = (function(){
   'use strict';
 
-  function Generator() {  }
+  function Generator() {}
 
   return Generator;
 

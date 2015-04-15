@@ -1,7 +1,7 @@
 var Drawer = (function() {
   'use strict';
 
-  function Drawer() {  }
+  function Drawer() {}
 
   return Drawer;
 
